@@ -63,7 +63,8 @@ The PDF includes the diagram only when `svglib` is installed
 
 Defined in `deeptutor/board/schema.py`. Top level: `schema_version`,
 `board_id`, `subject`, `topic`, `generated_at`, `sources`, `picture`, `notes`,
-`practice`, `progress`, `review`, `warnings`. Another client can read this file
+`practice`, `progress`, `explainers`, `review`, `warnings`. Each explainer has
+`kp_id`, `title`, `explanation`, `example`, `mistake` and a `check` question. Another client can read this file
 without importing DeepTutor.
 
 ## Safety

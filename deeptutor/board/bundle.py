@@ -125,7 +125,34 @@ if(B.warnings&&B.warnings.length){var b=el("details",{class:"banner"},[el("summa
  (n.sections||[]).forEach(function(sec,i){var d=el("details");if(i===0)d.open=true;d.appendChild(el("summary",{text:sec.heading}));var ul=el("ul");(sec.points||[]).forEach(function(p){ul.appendChild(el("li",{text:p}))});d.appendChild(ul);s.appendChild(d)});
  if((n.formulas||[]).length){s.appendChild(el("h2",{text:"Formulas"}));n.formulas.forEach(function(f){var c=el("div",{class:"card formula"},[el("strong",{text:f.name}),el("code",{text:f.latex})]);if(f.explanation)c.appendChild(el("div",{class:"meta",text:f.explanation}));s.appendChild(c)})}
  if((n.key_terms||[]).length){s.appendChild(el("h2",{text:"Key terms"}));var dl=el("dl");n.key_terms.forEach(function(t){dl.appendChild(el("dt",{text:t.term}));dl.appendChild(el("dd",{text:t.meaning}))});s.appendChild(dl)}
+ if((B.explainers||[]).length){s.appendChild(el("h2",{text:"Explain it to me"}));B.explainers.forEach(function(e){var d=el("details");d.appendChild(el("summary",{text:e.title}));var box=el("div",{style:"padding:0 14px 12px"});d.appendChild(box);var done=false;d.addEventListener("toggle",function(){if(d.open&&!done){done=true;renderExplainer(box,e)}});s.appendChild(d)})}
  if(!s.firstChild)s.appendChild(el("p",{class:"meta",text:"No notes for this topic."}));})();
+
+/* Explainers: plain words, a site example, then a fresh question */
+var EX={};(B.explainers||[]).forEach(function(e){EX[e.kp_id]=e});
+function renderExplainer(box,e){
+ clear(box);
+ var c=el("div",{class:"card"});c.appendChild(el("strong",{text:"Let me explain: "+e.title}));
+ String(e.explanation).split(/\n+/).forEach(function(t){if(t.trim())c.appendChild(el("p",{text:t}))});
+ if(e.example)c.appendChild(el("p",{},[el("b",{text:"On site: "}),document.createTextNode(e.example)]));
+ if(e.mistake)c.appendChild(el("p",{},[el("b",{text:"Common mistake: "}),document.createTextNode(e.mistake)]));
+ box.appendChild(c);
+ var q=e.check,key="e-"+e.kp_id,a=answers[key],tf=q.type==="true_false";
+ var right=tf?[String(q.answer).toLowerCase()]:keys(q.answer);
+ box.appendChild(el("p",{class:"meta",text:"Check yourself with a new question"}));
+ box.appendChild(el("div",{class:"card"},[el("p",{text:q.question})]));
+ var grid=el("div",{class:"opts"});
+ var choices=tf?[["true","True"],["false","False"]]:Object.keys(q.options).sort().map(function(k){return [k.toUpperCase(),k+". "+q.options[k]]});
+ choices.forEach(function(ch){var v=ch[0],cls="opt";
+  if(a){if(right.indexOf(v)>-1)cls+=" right";else if(a.given.indexOf(v)>-1)cls+=" wrong"}
+  var b=el("button",{class:cls,type:"button",text:ch[1]});if(a)b.disabled=true;
+  b.addEventListener("click",function(){answers[key]={given:[v],correct:right.indexOf(v)>-1,at:new Date().toISOString()};save();renderExplainer(box,e)});
+  grid.appendChild(b)});
+ box.appendChild(grid);
+ if(a){box.appendChild(el("p",{class:a.correct?"good":"badc",text:a.correct?"Correct. You have got it.":"Not yet. Read the explanation again, then try once more."}));
+  if(q.explanation)box.appendChild(el("div",{class:"card"},[el("strong",{text:"Why"}),el("p",{text:q.explanation})]));
+  var again=el("button",{type:"button",text:"Try again"});again.addEventListener("click",function(){delete answers[key];save();renderExplainer(box,e)});box.appendChild(again)}
+}
 
 /* Practice */
 var qs=(B.practice&&B.practice.questions)||[];var qi=0;
@@ -168,6 +195,8 @@ function renderPractice(){
   var msg=a.correct?el("p",{class:"good",text:"Correct"}):el("p",{class:"badc",text:"Not correct"});P.appendChild(msg);
   if(!isChoice(q)&&q.type!=="true_false")P.appendChild(el("div",{class:"card"},[el("strong",{text:"Model answer"}),el("p",{text:q.answer})]));
   if(q.explanation)P.appendChild(el("div",{class:"card"},[el("strong",{text:"Why"}),el("p",{text:q.explanation})]));
+  var ex=EX[q.knowledge_point_id];
+  if(!a.correct&&ex){var xb=el("div",{});renderExplainer(xb,ex);P.appendChild(xb)}
   var redo=el("button",{type:"button",text:"Try again"});redo.addEventListener("click",function(){delete answers[q.id];delete drafts[q.id];save();renderPractice();renderProgress()});P.appendChild(redo);
  }
  var nav=el("div",{class:"row"});var prev=el("button",{type:"button",text:"Back"}),next=el("button",{class:"primary",type:"button",text:qi===qs.length-1?"Finish":"Next"});
@@ -214,7 +243,7 @@ function exportProgress(){
 function importProgress(f){
  if(!f)return;var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);
   if(!d||d.board_id!==B.board_id||typeof d.answers!=="object"||d.answers===null){say("That file is for a different board.");return}
-  var ok={},ids={};qs.forEach(function(q){ids[q.id]=1});
+  var ok={},ids={};qs.forEach(function(q){ids[q.id]=1});(B.explainers||[]).forEach(function(e){ids["e-"+e.kp_id]=1});
   Object.keys(d.answers).forEach(function(k){var a=d.answers[k];if(ids[k]&&a&&Array.isArray(a.given)&&typeof a.correct==="boolean")ok[k]={given:a.given.map(String),correct:a.correct,at:String(a.at||"")}});
   answers=ok;save();renderPractice();renderProgress();say("Progress loaded.")}catch(e){say("That file could not be read.")}};r.readAsText(f)}
 

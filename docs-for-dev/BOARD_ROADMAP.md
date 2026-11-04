@@ -23,17 +23,18 @@ behaviour. What exists today is described in [BOARD.md](BOARD.md).
 - `deeptutor board studio`: choose route and level once, upload the guideline
   and past papers, pick a topic, press Build.
 - PDF export with an answer key.
+- Explainer mode: a wrong answer opens a plain explanation with a South African
+  site example and the common mistake, then a fresh check question on the same
+  skill. The same explanations are in the Notes tab under "Explain it to me".
 
 ## Next, in order
 
-1. Explainer mode. A wrong answer opens a plain explanation with a South
-   African construction example and a fresh question on the same idea.
-2. Pictures that match the notes: a label check against the notes, and a
+1. Pictures that match the notes: a label check against the notes, and a
    picture for each explanation where it helps.
-3. Study on PC and phone with saved answers and weak areas shown.
-4. Send a finished board to a phone (USB first).
-5. Cortex Synapse logo on every board page and the PDF.
-6. Extras: a real diagram from a free library (for example Wikimedia Commons)
+2. Study on PC and phone with saved answers and weak areas shown.
+3. Send a finished board to a phone (USB first).
+4. Cortex Synapse logo on every board page and the PDF.
+5. Extras: a real diagram from a free library (for example Wikimedia Commons)
    shown next to the drawn one, with its source and licence saved. Check
    whether SolidCraft can export pictures for 3D shapes.
 

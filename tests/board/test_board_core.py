@@ -6,7 +6,12 @@ from pydantic import ValidationError
 import pytest
 
 from deeptutor.board import BoardBuilder, BoardNotFound, BoardStore
-from deeptutor.board.builder import NOTES_SYSTEM, PRACTICE_SYSTEM, PROGRESS_SYSTEM
+from deeptutor.board.builder import (
+    EXPLAIN_SYSTEM,
+    NOTES_SYSTEM,
+    PRACTICE_SYSTEM,
+    PROGRESS_SYSTEM,
+)
 from deeptutor.board.schema import Board, Question, slugify
 from deeptutor.board.svg import UnsafeSvg, sanitize_svg
 
@@ -50,6 +55,26 @@ PRACTICE = {
         {"type": "short_answer", "question": "Define float.", "answer": "Spare time.", "marks": 2},
     ]
 }
+EXPLAINERS = {
+    "explainers": [
+        {
+            "kp_id": "kp1",
+            "title": "Explain planning",
+            "explanation": "Planning is deciding the order of work. It stops delays.\nThink of it as a map for the job.",
+            "example": "Pour the foundation before you build the walls.",
+            "mistake": "Starting the walls before the trench is checked.",
+            "check": {
+                "type": "single_choice",
+                "question": "What comes first on a house build?",
+                "options": {"A": "Roof", "B": "Foundation", "C": "Paint"},
+                "answer": "B",
+                "marks": 1,
+                "explanation": "Everything sits on the foundation.",
+            },
+        },
+        {"kp_id": "kp9", "title": "Unknown", "explanation": "x", "check": {}},
+    ]
+}
 GOOD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/><text x="1" y="9">A</text></svg>'
 
 
@@ -61,6 +86,8 @@ def fake_llm(fail: str | None = None):
             return json.dumps(PROGRESS)
         if system_prompt == PRACTICE_SYSTEM and fail != "practice":
             return json.dumps(PRACTICE)
+        if system_prompt == EXPLAIN_SYSTEM and fail != "explain":
+            return json.dumps(EXPLAINERS)
         return "not json at all"
 
     return llm
@@ -228,3 +255,18 @@ def test_store_rejects_path_traversal(tmp_path):
     with pytest.raises(BoardNotFound):
         store.board_dir("../etc")
     assert store.exists("../etc") is False
+
+
+def test_explainers_are_validated_and_isolated():
+    import asyncio
+
+    result = asyncio.run(builder().build(subject="CE", topic="Planning", questions=2))
+    b = result.board
+    assert [e.kp_id for e in b.explainers] == ["kp1"]
+    assert b.explainers[0].check.id == "e-kp1"
+    assert any("1 generated explanation" in w for w in b.warnings)
+    failed = asyncio.run(
+        builder(llm=fake_llm(fail="explain")).build(subject="CE", topic="Planning", questions=2)
+    )
+    assert failed.board.explainers == [] and any("Explanations" in w for w in failed.board.warnings)
+    assert failed.board.notes.sections and failed.board.practice.questions

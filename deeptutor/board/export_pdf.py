@@ -116,6 +116,16 @@ def build_pdf(board: Board, svg: str, out: Path) -> Path:
         for k in n.key_terms:
             s.append(Paragraph(f"<b>{_p(k.term)}</b>: {_p(k.meaning)}", body))
 
+    if board.explainers:
+        s.append(Paragraph("Explain it to me", h2))
+        for e in board.explainers:
+            block = [Paragraph(_p(e.title), h3), Paragraph(_p(e.explanation), body)]
+            if e.example:
+                block.append(Paragraph(f"<b>On site:</b> {_p(e.example)}", body))
+            if e.mistake:
+                block.append(Paragraph(f"<b>Common mistake:</b> {_p(e.mistake)}", body))
+            s.append(KeepTogether(block))
+
     # Practice
     qs = board.practice.questions
     s.append(PageBreak())
@@ -137,6 +147,17 @@ def build_pdf(board: Board, svg: str, out: Path) -> Path:
         if q.explanation:
             line += f" <font color='#555555'>{_p(q.explanation)}</font>"
         s.append(Paragraph(line, body))
+
+    if board.explainers:
+        s.append(Spacer(1, 6))
+        s.append(Paragraph("Check questions from the explanations", h3))
+        for e in board.explainers:
+            q = e.check
+            opts = " ".join(f"{k}. {v}" for k, v in q.options.items())
+            line = (
+                f"<b>{_p(e.title)}:</b> {_p(q.question)} {_p(opts)} <b>Answer: {_p(q.answer)}</b>"
+            )
+            s.append(Paragraph(line, body))
 
     # Progress
     p = board.progress

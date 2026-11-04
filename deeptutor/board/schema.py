@@ -143,6 +143,25 @@ class Practice(_Model):
         return self
 
 
+class Explainer(_Model):
+    """A plain-words explanation of one skill, with a fresh check question."""
+
+    kp_id: str = Field(max_length=80)
+    title: str = Field(max_length=300)
+    explanation: str = Field(max_length=3000)
+    example: str = Field(default="", max_length=1500)
+    mistake: str = Field(default="", max_length=1000)
+    check: Question
+
+    @model_validator(mode="after")
+    def _simple_check(self) -> "Explainer":
+        if not _clean(self.explanation):
+            raise ValueError("explanation is empty")
+        if self.check.type not in {"single_choice", "true_false"}:
+            raise ValueError("check question must be single_choice or true_false")
+        return self
+
+
 class MasteryItem(_Model):
     id: str = Field(max_length=80)
     title: str = Field(max_length=300)
@@ -173,6 +192,7 @@ class Board(_Model):
     notes: Notes = Field(default_factory=Notes)
     practice: Practice = Field(default_factory=Practice)
     progress: Progress = Field(default_factory=Progress)
+    explainers: list[Explainer] = Field(default_factory=list, max_length=40)
     review: Review = Field(default_factory=Review)
     warnings: list[str] = Field(default_factory=list, max_length=40)
 

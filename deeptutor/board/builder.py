@@ -25,6 +25,7 @@ from deeptutor.utils.json_parser import parse_json_response
 from .schema import (
     MAX_QUESTIONS,
     Board,
+    Explainer,
     MasteryItem,
     Notes,
     Picture,
@@ -87,6 +88,26 @@ PRACTICE_SYSTEM = (
     "Mix the types. Most should be single_choice or short_answer. Cover every mastery path item. "
     "Questions must be answerable from the notes given."
 )
+
+
+EXPLAIN_SYSTEM = (
+    "You are a patient tutor. For each skill on the mastery path, explain it the way a good "
+    "teacher would to a student who got it wrong.\n" + _STYLE + "\n\n"
+    'JSON key "explainers": one item per mastery path id. Each item:\n'
+    '- "kp_id": the mastery path id.\n'
+    '- "title": the skill, in a few words.\n'
+    '- "explanation": 3 to 6 short sentences in plain English. Say what it is, then why, then how.\n'
+    '- "example": a simple everyday example from a South African building site or a house '
+    "(bricks, cement, a trench, a tape measure). No invented numbers or standards.\n"
+    '- "mistake": the most common mistake students make, in one sentence.\n'
+    '- "check": a NEW question on the same idea (not one already asked) with keys '
+    '"type" (single_choice or true_false), "question", "options" ({"A","B","C"} for single_choice, '
+    'otherwise {}), "answer" (key like "B", or "true"/"false"), "marks" 1, "explanation" (one sentence).'
+)
+
+
+def kp_ids_ok(board: Board) -> bool:
+    return bool(board.progress.mastery_path)
 
 
 @dataclass
@@ -164,6 +185,38 @@ class BoardBuilder:
             if isinstance(data, dict) and data:
                 return data
         raise ValueError("model did not return a JSON object")
+
+    async def _explainers(
+        self, who: str, notes_text: str, notes_ctx: str, board: Board, warnings: list[str]
+    ) -> list[Explainer]:
+        path = board.progress.mastery_path
+        ids = [m.id for m in path]
+        asked = "\n".join(f"- {q.question}" for q in board.practice.questions)
+        prompt = (
+            f"{who}\n\nMASTERY PATH:\n"
+            + "\n".join(f"{m.id}: {m.title}" for m in path)
+            + f"\n\nNOTES:\n{notes_text or '(none)'}\n\nSOURCE:\n{_trim(notes_ctx, 6000) or '(none)'}"
+            + f"\n\nQUESTIONS ALREADY ASKED (do not repeat):\n{asked or '(none)'}"
+        )
+        data = await self._json(EXPLAIN_SYSTEM, prompt)
+        out: list[Explainer] = []
+        seen: set[str] = set()
+        dropped = 0
+        for raw in data.get("explainers", []):
+            try:
+                kp = str(raw.get("kp_id", ""))
+                if kp not in ids or kp in seen:
+                    raise ValueError("unknown or repeated kp_id")
+                chk = {**raw.get("check", {}), "id": f"e-{kp}", "knowledge_point_id": kp}
+                out.append(Explainer.model_validate({**raw, "check": chk}))
+                seen.add(kp)
+            except (ValidationError, AttributeError, TypeError, ValueError):
+                dropped += 1
+        if dropped:
+            warnings.append(f"{dropped} generated explanation(s) were invalid and left out.")
+        if not out:
+            warnings.append("No valid explanations were generated.")
+        return out
 
     async def build(
         self,
@@ -289,6 +342,16 @@ class BoardBuilder:
         except Exception as exc:
             logger.warning("Practice failed: %s", exc)
             warnings.append(f"Practice questions could not be generated: {exc}")
+
+        # 4. Explainers: plain words plus a fresh check question for each skill
+        if kp_ids_ok(board):
+            try:
+                board.explainers = await self._explainers(
+                    who, notes_text, notes_ctx, board, warnings
+                )
+            except Exception as exc:
+                logger.warning("Explainers failed: %s", exc)
+                warnings.append(f"Explanations could not be generated: {exc}")
 
         board.warnings = warnings
         return BuildResult(board=board, svg=svg)
