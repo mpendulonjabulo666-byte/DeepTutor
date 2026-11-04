@@ -172,6 +172,12 @@ def register(app: typer.Typer) -> None:
 
         from deeptutor.board.studio import Studio, make_studio_server
 
+        try:  # the picture step needs the default settings files; saved settings are kept
+            from deeptutor.services.config import get_runtime_settings_service
+
+            get_runtime_settings_service().ensure_defaults()
+        except Exception as exc:
+            console.print(f"[yellow]Could not create default settings: {exc}[/]")
         store = _store(root)
         folder = store.root.parent / "board_studio" if root is None else Path(root) / "_studio"
         server = make_studio_server(Studio(store, folder), port)

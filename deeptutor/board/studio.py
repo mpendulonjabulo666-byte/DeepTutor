@@ -40,6 +40,19 @@ _TOPIC_LINE = re.compile(
 _WEIGHT_LINE = re.compile(r"^\s*\d+\.\s+(.{3,120}?)\s+(\d{1,3})\s*%\s*$", re.MULTILINE)
 
 
+def friendly_error(text: str) -> str:
+    """Turn a provider error into something a student can act on."""
+    low = text.lower()
+    if "429" in low or "quota" in low or "resource_exhausted" in low:
+        return (
+            "Your free Gemini allowance for this model is used up. It comes back at about "
+            "10:00 South African time. Or switch to a model with a bigger free allowance."
+        )
+    if "503" in low or "unavailable" in low or "high demand" in low:
+        return "Google is busy right now. Wait a minute and press Build again."
+    return text
+
+
 class StudioError(ValueError):
     """A problem the person can fix (shown on the page)."""
 
@@ -340,13 +353,17 @@ class Studio:
                     with_picture=with_picture,
                 )
             )
+            board = result.board
+            if not board.notes.sections and not board.practice.questions:
+                reasons = " ".join(board.warnings)
+                raise RuntimeError(friendly_error(reasons) or "Nothing could be generated.")
             self.store.save(result.board, result.svg)
             write_bundle(self.store, result.board.board_id)
             job.board_id = result.board.board_id
-            job.warnings = list(result.board.warnings)
+            job.warnings = [friendly_error(w) if len(w) > 120 else w for w in result.board.warnings]
             job.status = "done"
         except Exception as exc:  # shown to the person; details stay short
-            job.error = str(exc)[:400] or exc.__class__.__name__
+            job.error = friendly_error(str(exc))[:400] or exc.__class__.__name__
             job.status = "failed"
         finally:
             job.finished = time.time()

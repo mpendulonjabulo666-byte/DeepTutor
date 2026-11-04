@@ -36,6 +36,18 @@ board is made only from the uploaded files; a PDF that is photos of pages
 Google and can take a few minutes (limit 120 pages). Each board then has **Open**, **PDF**, **Phone file** and
 **Approve**. Your choices and files stay in `data/user/board_studio/`.
 
+## Free Gemini limits
+
+On Google's free tier, `gemini-3.8-flash` allows about 20 requests a day (as
+published in October 2026; check your own Google AI Studio usage page). One
+board uses roughly 6 to 12 requests and reading a scanned PDF uses one per ten
+pages, so that allowance runs out fast. The daily limit resets at midnight
+Pacific time, about 10:00 South African time. Flash-Lite models list a much
+larger free allowance (about 500 a day). To switch, put that model's name from
+AI Studio into `setup.json`, run `deeptutor config apply setup.json`, then
+`deeptutor doctor --online`. If a build fails because of the allowance, the
+studio says so and saves no empty board.
+
 ## Commands
 
 ```bash

@@ -291,3 +291,24 @@ def test_gemini_ocr_splits_pages_and_retries(tmp_path, monkeypatch):
     out = ocr.ocr_pdf_with_gemini(buf.getvalue(), post=post)
     assert len(calls) == 3  # first part retried once, second part once: 12 pages = 2 parts
     assert "text2" in out and "text3" in out and "gemini-test" in calls[0][0]
+
+
+def test_a_build_with_no_notes_and_no_questions_fails_clearly(tmp_path):
+    from .test_board_core import fake_llm
+
+    class Quota(Exception):
+        pass
+
+    async def broke(prompt, system_prompt, **kw):
+        raise Quota("HTTP 429 Error: You exceeded your current quota")
+
+    def factory(context):
+        return BoardBuilder(llm=broke, picture=good_picture, context=context)
+
+    studio = Studio(BoardStore(tmp_path / "b"), tmp_path / "s", factory)
+    studio.save_profile(PROFILE)
+    studio.add_doc("g.txt", GUIDE.encode())
+    job = studio.start_build("Foundations", 5, False)
+    wait_done(studio, job)
+    assert job.status == "failed" and "allowance" in job.error
+    assert studio.store.list() == []
