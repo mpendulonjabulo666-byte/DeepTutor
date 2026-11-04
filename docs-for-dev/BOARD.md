@@ -20,6 +20,21 @@ Questions use the same types as the question bank (`single_choice`,
 write boards into the question bank or the mastery path store; it produces a
 self-contained board.
 
+## Studio (no typing of topics or paths)
+
+```powershell
+python -m pip install -r requirements/board.txt
+deeptutor board studio
+```
+
+A page opens in your browser (`http://localhost:8766/`, this computer only).
+Choose school, NCV or Nated and your level once, type your subject, upload the
+subject guideline and past papers (PDF with real text, Word or text file),
+pick a topic and press **Build board**. A build takes a minute or three. The
+board is made only from the uploaded files; scanned PDFs (photos of pages)
+cannot be read yet. Each board then has **Open**, **PDF**, **Phone file** and
+**Approve**. Your choices and files stay in `data/user/board_studio/`.
+
 ## Commands
 
 ```bash
@@ -73,6 +88,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -r requirements/full.txt
 python -m pip install -e . --no-deps
+python -m pip install -r requirements/board.txt
 ```
 
 Set the Gemini key without it appearing in your history:

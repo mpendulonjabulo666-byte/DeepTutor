@@ -32,6 +32,7 @@ installation before deciding to reinstall it.
 
 - [Learning Board](BOARD.md): Picture, Notes, Practice and Progress for one
   topic, built on the laptop and studied offline on a phone.
+- [Learning Board roadmap](BOARD_ROADMAP.md): what is planned and in what order.
 
 ### Runtime and extension development
 

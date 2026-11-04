@@ -161,6 +161,33 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=1)
         console.print(f"[green]Wrote[/] {path}")
 
+    @app.command("studio")
+    def studio(
+        port: int = typer.Option(8766, "--port"),
+        root: Path | None = typer.Option(None, "--root", help="Where boards are stored."),
+        open_browser: bool = typer.Option(True, "--open-browser/--no-browser"),
+    ) -> None:
+        """Open the Learning Board Studio in your browser: level, upload, topic, Build."""
+        import webbrowser
+
+        from deeptutor.board.studio import Studio, make_studio_server
+
+        store = _store(root)
+        folder = store.root.parent / "board_studio" if root is None else Path(root) / "_studio"
+        server = make_studio_server(Studio(store, folder), port)
+        url = f"http://localhost:{port}/"
+        console.print(
+            f"Studio is open at [bold]{url}[/]. Only this computer can reach it. Press Ctrl+C to stop."
+        )
+        if open_browser:
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            console.print("Stopped.")
+        finally:
+            server.server_close()
+
     @app.command("approve")
     def approve(
         board_id: str = typer.Argument(...),
