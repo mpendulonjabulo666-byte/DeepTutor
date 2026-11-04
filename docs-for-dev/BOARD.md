@@ -28,6 +28,7 @@ deeptutor board create --subject "Civil Engineering" --topic "Construction Plann
 deeptutor board list
 deeptutor board show <board_id>              # board JSON
 deeptutor board bundle <board_id>            # rewrite the phone page
+deeptutor board export <board_id>            # printable PDF: notes, practice, answer key
 deeptutor board approve <board_id>           # remove the draft banner after you checked it
 deeptutor board serve [--port 8765] [--lan]  # read-only server for a phone
 ```
@@ -39,6 +40,9 @@ Boards are stored in `data/user/boards/<board_id>/`: `board.json`,
 A new board is a **draft**. The phone page shows a banner until someone runs
 `deeptutor board approve`. Read every note and answer against your guideline
 first. If a section fails to generate, the board is still saved with a warning.
+
+The PDF includes the diagram only when `svglib` is installed
+(`python -m pip install svglib`); otherwise it points to the phone page.
 
 ## Board JSON (schema version 1)
 

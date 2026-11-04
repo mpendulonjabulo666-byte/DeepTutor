@@ -140,6 +140,27 @@ def register(app: typer.Typer) -> None:
             raise typer.Exit(code=1)
         console.print(f"[green]Wrote[/] {path}")
 
+    @app.command("export")
+    def export(
+        board_id: str = typer.Argument(...),
+        fmt: str = typer.Option("pdf", "--format", "-f", help="pdf"),
+        out: Path | None = typer.Option(None, "--out", help="Where to write the file."),
+        root: Path | None = typer.Option(None, "--root"),
+    ) -> None:
+        """Write a printable PDF (notes, practice, answer key) for phones that cannot open the page."""
+        from deeptutor.board import BoardNotFound
+        from deeptutor.board.export_pdf import write_pdf
+
+        if fmt != "pdf":
+            console.print("[red]Only --format pdf is supported.[/]")
+            raise typer.Exit(code=2)
+        try:
+            path = write_pdf(_store(root), board_id, out)
+        except BoardNotFound as exc:
+            console.print(f"[red]{exc}[/]")
+            raise typer.Exit(code=1)
+        console.print(f"[green]Wrote[/] {path}")
+
     @app.command("approve")
     def approve(
         board_id: str = typer.Argument(...),

@@ -239,3 +239,32 @@ def test_cli_missing_board_is_a_clean_error(cli, tmp_path):
     for args in (["show", "ghost"], ["bundle", "ghost"], ["approve", "ghost"]):
         res = runner.invoke(app, ["board", *args, "--root", str(tmp_path)])
         assert res.exit_code == 1 and "No board named" in res.output
+
+
+def test_pdf_export_has_notes_practice_and_answer_key(tmp_path):
+    from pypdf import PdfReader
+
+    from deeptutor.board.export_pdf import write_pdf
+
+    store = BoardStore(tmp_path)
+    board, svg = make_board()
+    store.save(board, svg)
+    path = write_pdf(store, board.board_id)
+    assert path.suffix == ".pdf" and path.stat().st_size > 1000
+    text = "\n".join(p.extract_text() for p in PdfReader(str(path)).pages)
+    assert board.topic in text
+    assert "Answer key" in text and "Practice" in text and "DRAFT" in text
+    store.mark_reviewed(board.board_id)
+    again = write_pdf(store, board.board_id, tmp_path / "x.pdf")
+    assert "DRAFT" not in "\n".join(p.extract_text() for p in PdfReader(str(again)).pages)
+
+
+def test_cli_export_pdf(cli, tmp_path):
+    runner, app = cli
+    root = ["--root", str(tmp_path)]
+    runner.invoke(app, ["board", "create", "-s", "Civil", "-t", "Planning", "--kb", "k", *root])
+    out = runner.invoke(app, ["board", "export", "civil-planning", *root])
+    assert out.exit_code == 0, out.output
+    assert (tmp_path / "civil-planning" / "civil-planning.pdf").is_file()
+    bad = runner.invoke(app, ["board", "export", "civil-planning", "-f", "docx", *root])
+    assert bad.exit_code == 2
