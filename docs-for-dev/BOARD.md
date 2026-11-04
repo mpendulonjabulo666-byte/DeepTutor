@@ -1,0 +1,117 @@
+# Learning Board
+
+[Handbook](README.md) · [Related guide](AGENT_SETUP.md)
+
+A Learning Board teaches one topic in four sections: **Picture** (a labelled
+diagram), **Notes**, **Practice** (questions with marking) and **Progress**
+(a mastery path and weak areas). It is private and local-first: the laptop
+builds the board, and the phone opens one HTML file that works offline.
+
+## What it reuses
+
+| Section | Built with |
+| --- | --- |
+| Picture | The visualize pipeline in `deeptutor/agents/visualize`, forced to SVG, then cleaned by `deeptutor/board/svg.py` |
+| Notes, Practice, Progress | `deeptutor.services.llm.complete` with strict JSON, checked against `deeptutor/board/schema.py` |
+| Source material | An existing knowledge base (`deeptutor kb create`), searched with `RAGService` |
+
+Questions use the same types as the question bank (`single_choice`,
+`multi_choice`, `true_false`, `fill_blank`, `short_answer`). Phase 1 does not
+write boards into the question bank or the mastery path store; it produces a
+self-contained board.
+
+## Commands
+
+```bash
+deeptutor board create --subject "Civil Engineering" --topic "Construction Planning" \
+    --kb construction-planning --level "NCV Level 2" --questions 10
+deeptutor board list
+deeptutor board show <board_id>              # board JSON
+deeptutor board bundle <board_id>            # rewrite the phone page
+deeptutor board approve <board_id>           # remove the draft banner after you checked it
+deeptutor board serve [--port 8765] [--lan]  # read-only server for a phone
+```
+
+Boards are stored in `data/user/boards/<board_id>/`: `board.json`,
+`assets/picture.svg` and `<board_id>.html`. Every command accepts
+`--root <folder>` to use another folder.
+
+A new board is a **draft**. The phone page shows a banner until someone runs
+`deeptutor board approve`. Read every note and answer against your guideline
+first. If a section fails to generate, the board is still saved with a warning.
+
+## Board JSON (schema version 1)
+
+Defined in `deeptutor/board/schema.py`. Top level: `schema_version`,
+`board_id`, `subject`, `topic`, `generated_at`, `sources`, `picture`, `notes`,
+`practice`, `progress`, `review`, `warnings`. Another client can read this file
+without importing DeepTutor.
+
+## Safety
+
+- The phone page makes no network request, loads no library, and writes board
+  text with `textContent`. The only markup is the SVG, which is stripped of
+  scripts, event handlers, external references, `foreignObject` and animation.
+- `board serve` serves only board pages and JSON. It does not expose the
+  DeepTutor API, settings or keys. It listens on `127.0.0.1` unless `--lan` is
+  given, and `--lan` has no login: anyone on that network can read the boards.
+- `deeptutor serve` (the full backend) listens on `0.0.0.0` by default. Do not
+  use it on shared Wi-Fi without login enabled.
+- Generation sends parts of your guideline to the configured model provider.
+
+## Windows laptop and Android phone
+
+PowerShell, from the repository root. Python 3.11 to 3.14 is required.
+
+```powershell
+git checkout feature/deeptutor-board
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements/full.txt
+python -m pip install -e . --no-deps
+```
+
+Set the Gemini key without it appearing in your history:
+
+```powershell
+$k = Read-Host "Gemini API key" -AsSecureString
+$env:DEEPTUTOR_SETUP_LLM_KEY = [System.Net.NetworkCredential]::new("", $k).Password
+$env:DEEPTUTOR_SETUP_EMBEDDING_KEY = $env:DEEPTUTOR_SETUP_LLM_KEY
+```
+
+Create `setup.json` (use the model ids your Gemini account offers):
+
+```json
+{
+  "llm": { "provider": "gemini", "model": "YOUR_GEMINI_MODEL_ID", "api_key_env": "DEEPTUTOR_SETUP_LLM_KEY" },
+  "embedding": { "provider": "gemini", "model": "YOUR_GEMINI_EMBEDDING_MODEL_ID", "api_key_env": "DEEPTUTOR_SETUP_EMBEDDING_KEY" }
+}
+```
+
+```powershell
+deeptutor config apply setup.json --check
+deeptutor config apply setup.json
+deeptutor doctor --online
+deeptutor kb create construction-planning --doc "C:\path\guideline.pdf" --doc "C:\path\past-paper.pdf"
+deeptutor board create --subject "Civil Engineering" --topic "Construction Planning" `
+    --kb construction-planning --level "NCV Level 2"
+```
+
+Phone, option 1 (no server): connect the phone by USB in file-transfer mode,
+copy `<board_id>.html` to its Downloads folder, open it from the Files app in
+Chrome. Turn on airplane mode and reload to prove it works offline.
+
+Phone, option 2 (USB server): turn on USB debugging, install Android platform
+tools, then
+
+```powershell
+deeptutor board serve
+adb reverse tcp:8765 tcp:8765
+```
+
+and open `http://localhost:8765/` in Chrome on the phone.
+
+Checks on the phone: all four tabs work in airplane mode; answer five
+questions, close the page, reopen it, and confirm the answers are still there.
+If a file opened from Downloads does not keep answers, use **Save progress
+file** and **Load progress file** on the Progress tab, or use option 2.

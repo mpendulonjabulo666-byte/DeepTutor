@@ -28,6 +28,11 @@ installation before deciding to reinstall it.
 
 ## Topic map
 
+### Learning Board
+
+- [Learning Board](BOARD.md): Picture, Notes, Practice and Progress for one
+  topic, built on the laptop and studied offline on a phone.
+
 ### Runtime and extension development
 
 - [Architecture and source owners](ARCHITECTURE.md): entry points, durable

@@ -106,6 +106,7 @@ def test_internal_docs_links_point_to_existing_pages() -> None:
 
 def test_documented_deeptutor_subcommands_exist() -> None:
     top_level = {
+        "board",
         "book",
         "chat",
         "config",

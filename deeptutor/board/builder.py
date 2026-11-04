@@ -1,0 +1,297 @@
+"""Build a topic board from one request.
+
+Order of work:
+
+1. Notes (from the knowledge base when one is given), including a brief for the picture.
+2. Progress (the mastery path) and Picture, in parallel.
+3. Practice, tied to the mastery path items.
+
+Each section is isolated. If one fails, the board is still saved with that
+section empty and a warning, so one bad generation does not lose the rest.
+The model calls are injectable so tests run without a network or a key.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+import logging
+from typing import Any, Awaitable, Callable
+
+from pydantic import ValidationError
+
+from deeptutor.utils.json_parser import parse_json_response
+
+from .schema import (
+    MAX_QUESTIONS,
+    Board,
+    MasteryItem,
+    Notes,
+    Picture,
+    Practice,
+    Progress,
+    Question,
+    Source,
+    slugify,
+)
+from .svg import UnsafeSvg, sanitize_svg
+
+logger = logging.getLogger(__name__)
+
+LLMFn = Callable[..., Awaitable[str]]
+PictureFn = Callable[[str, str, str], Awaitable[str]]
+ContextFn = Callable[[str, str], Awaitable[str]]
+
+MAX_CONTEXT_CHARS = 12_000
+
+_STYLE = (
+    "Write for students at a South African TVET college. Use plain English, short sentences "
+    "and everyday words. Explain technical terms the first time they appear. "
+    "Use only facts that appear in SOURCE when SOURCE is given. When SOURCE is empty, use only "
+    "well-established general knowledge. Never invent figures, standards, regulations or clause "
+    "numbers. If you are unsure of a value, leave it out. Reply with one JSON object and nothing else."
+)
+
+NOTES_SYSTEM = (
+    "You write exam-ready study notes.\n" + _STYLE + "\n\n"
+    "JSON keys:\n"
+    '- "summary": 2 to 3 sentences.\n'
+    '- "sections": 4 to 6 items of {"heading": str, "points": [3 to 6 short strings]}.\n'
+    '- "formulas": items of {"name": str, "latex": str, "explanation": str}. Real formulas only. Empty list if none.\n'
+    '- "key_terms": 6 to 12 items of {"term": str, "meaning": str}.\n'
+    '- "picture": {"title": str, "what_to_draw": str, "caption": str, "alt": str}. '
+    "One diagram that would help a student understand the topic. "
+    '"what_to_draw" lists the exact shapes and labels.'
+)
+
+PROGRESS_SYSTEM = (
+    "You design a mastery path: the ordered skills a student must master for a topic.\n"
+    + _STYLE
+    + "\n\n"
+    'JSON key "mastery_path": 4 to 6 items of {"id": "kp1", "title": str}, ids kp1, kp2 and so on, '
+    "in the order a student should learn them. Titles start with a verb such as Identify, Explain, Calculate."
+)
+
+PRACTICE_SYSTEM = (
+    "You write exam practice questions with a marking guide.\n" + _STYLE + "\n\n"
+    'JSON key "questions": a list. Each item:\n'
+    '- "type": one of single_choice, multi_choice, true_false, fill_blank, short_answer.\n'
+    '- "question": str.\n'
+    '- "options": {"A": str, "B": str, "C": str, "D": str} for single_choice and multi_choice, otherwise {}.\n'
+    '- "answer": for single_choice the key such as "B"; for multi_choice keys such as "A,C"; '
+    'for true_false exactly "true" or "false"; otherwise the model answer text.\n'
+    '- "marks": integer 1 to 6, higher for longer answers.\n'
+    '- "explanation": 1 to 2 sentences on why the answer is right.\n'
+    '- "difficulty": easy, medium or hard.\n'
+    '- "knowledge_point_id": one of the mastery path ids given.\n'
+    "Mix the types. Most should be single_choice or short_answer. Cover every mastery path item. "
+    "Questions must be answerable from the notes given."
+)
+
+
+@dataclass
+class BuildResult:
+    board: Board
+    svg: str | None
+
+
+def _trim(text: str, limit: int = MAX_CONTEXT_CHARS) -> str:
+    text = (text or "").strip()
+    return text if len(text) <= limit else text[:limit] + "\n[truncated]"
+
+
+async def default_llm(prompt: str, system_prompt: str, **kwargs: Any) -> str:
+    from deeptutor.services.llm import complete
+
+    return await complete(prompt, system_prompt=system_prompt, **kwargs)
+
+
+async def default_context(kb: str, query: str) -> str:
+    from deeptutor.services.rag.service import RAGService
+
+    result = await RAGService().search(query=query, kb_name=kb)
+    return str(result.get("content") or result.get("answer") or "")
+
+
+async def default_picture(subject: str, topic: str, brief: str) -> str:
+    """Use the existing visualize pipeline, forced to SVG, and return raw model output."""
+    from deeptutor.agents.visualize.pipeline import VisualizePipeline
+    from deeptutor.services.llm.config import get_llm_config
+
+    cfg = get_llm_config()
+    pipeline = VisualizePipeline(
+        api_key=cfg.api_key,
+        base_url=cfg.base_url,
+        api_version=cfg.api_version,
+        language="en",
+    )
+    request = (
+        f"Draw one clear, labelled teaching diagram for the topic '{topic}' in {subject}. "
+        f"{brief}\nKeep labels short and readable on a phone screen. Use a plain light background."
+    )
+    analysis = await pipeline.run_analysis(
+        user_input=request, history_context="", render_mode="svg"
+    )
+    return await pipeline.run_code_generation(
+        user_input=request, history_context="", analysis=analysis
+    )
+
+
+class BoardBuilder:
+    def __init__(
+        self,
+        *,
+        llm: LLMFn | None = None,
+        picture: PictureFn | None = None,
+        context: ContextFn | None = None,
+    ) -> None:
+        self._llm = llm or default_llm
+        self._picture = picture or default_picture
+        self._context = context or default_context
+
+    async def _json(self, system: str, prompt: str) -> dict[str, Any]:
+        """Ask for JSON, with one retry that restates the format."""
+        last = ""
+        for attempt in range(2):
+            ask = (
+                prompt
+                if attempt == 0
+                else prompt
+                + "\n\nYour last reply was not valid JSON. Reply with the JSON object only."
+            )
+            last = await self._llm(ask, system_prompt=system)
+            data = parse_json_response(last, fallback=None)
+            if isinstance(data, dict) and data:
+                return data
+        raise ValueError("model did not return a JSON object")
+
+    async def build(
+        self,
+        *,
+        subject: str,
+        topic: str,
+        kb: str | None = None,
+        level: str = "",
+        questions: int = 10,
+        with_picture: bool = True,
+        board_id: str | None = None,
+    ) -> BuildResult:
+        questions = max(1, min(int(questions), MAX_QUESTIONS))
+        board = Board(
+            board_id=board_id or slugify(subject, topic),
+            subject=subject,
+            topic=topic,
+        )
+        warnings: list[str] = []
+        who = f"Subject: {subject}\nTopic: {topic}" + (f"\nLevel: {level}" if level else "")
+
+        notes_ctx = questions_ctx = ""
+        if kb:
+            board.sources.append(Source(kind="other", name=f"Knowledge base: {kb}"))
+            try:
+                notes_ctx, questions_ctx = await asyncio.gather(
+                    self._context(kb, f"{subject} {topic}"),
+                    self._context(kb, f"{topic} exam questions memorandum marks"),
+                )
+            except Exception as exc:
+                logger.warning("Knowledge base search failed: %s", exc)
+                warnings.append(f"Knowledge base '{kb}' could not be searched: {exc}")
+        if not notes_ctx.strip():
+            warnings.append(
+                "No source material was used. Content comes from general knowledge and must be checked against your guideline."
+            )
+
+        # 1. Notes
+        brief = ""
+        try:
+            data = await self._json(
+                NOTES_SYSTEM, f"{who}\n\nSOURCE:\n{_trim(notes_ctx) or '(none)'}"
+            )
+            pic = data.pop("picture", None) or {}
+            board.notes = Notes.model_validate(data)
+            board.picture = Picture(
+                title=str(pic.get("title", "")),
+                alt=str(pic.get("alt", "")),
+                caption=str(pic.get("caption", "")),
+            )
+            brief = str(pic.get("what_to_draw", ""))
+        except Exception as exc:
+            logger.warning("Notes failed: %s", exc)
+            warnings.append(f"Notes could not be generated: {exc}")
+
+        notes_text = board.notes.model_dump_json() if board.notes.sections else ""
+
+        # 2. Progress and Picture in parallel
+        async def progress_task() -> Progress:
+            data = await self._json(PROGRESS_SYSTEM, f"{who}\n\nNOTES:\n{notes_text or '(none)'}")
+            items = [
+                MasteryItem.model_validate({**i, "status": "new"})
+                for i in data.get("mastery_path", [])
+            ]
+            if not items:
+                raise ValueError("empty mastery path")
+            return Progress(mastery_path=items)
+
+        async def picture_task() -> str:
+            raw = await self._picture(subject, topic, brief or board.picture.title)
+            return sanitize_svg(raw)
+
+        tasks: list[Awaitable[Any]] = [progress_task()]
+        if with_picture:
+            tasks.append(picture_task())
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        if isinstance(results[0], BaseException):
+            logger.warning("Progress failed: %s", results[0])
+            warnings.append(f"Mastery path could not be generated: {results[0]}")
+        else:
+            board.progress = results[0]
+
+        svg: str | None = None
+        if with_picture:
+            if isinstance(results[1], BaseException):
+                kind = "unsafe or unreadable" if isinstance(results[1], UnsafeSvg) else "failed"
+                warnings.append(f"Picture {kind}: {results[1]}")
+                logger.warning("Picture failed: %s", results[1])
+            else:
+                svg = results[1]
+                board.picture.kind = "svg"
+                board.picture.asset = "assets/picture.svg"
+                if not board.picture.alt:
+                    board.picture.alt = board.picture.title or f"Diagram for {topic}"
+
+        # 3. Practice
+        try:
+            kp_ids = [m.id for m in board.progress.mastery_path]
+            prompt = (
+                f"{who}\n\nWrite {questions} questions.\n"
+                f"MASTERY PATH IDS: {', '.join(kp_ids) or '(none)'}\n\n"
+                f"NOTES:\n{notes_text or '(none)'}\n\n"
+                f"PAST PAPER SOURCE (style and mark guide):\n{_trim(questions_ctx) or '(none)'}"
+            )
+            data = await self._json(PRACTICE_SYSTEM, prompt)
+            kept: list[Question] = []
+            dropped = 0
+            for raw_q in data.get("questions", []):
+                try:
+                    q = Question.model_validate({**raw_q, "id": f"q{len(kept) + 1}"})
+                except (ValidationError, AttributeError, TypeError):
+                    dropped += 1
+                    continue
+                if q.knowledge_point_id not in kp_ids:
+                    q.knowledge_point_id = ""
+                kept.append(q)
+            board.practice = Practice(questions=kept[:questions])
+            if dropped:
+                warnings.append(f"{dropped} generated question(s) were invalid and left out.")
+            if not kept:
+                warnings.append("No valid practice questions were generated.")
+        except Exception as exc:
+            logger.warning("Practice failed: %s", exc)
+            warnings.append(f"Practice questions could not be generated: {exc}")
+
+        board.warnings = warnings
+        return BuildResult(board=board, svg=svg)
+
+
+__all__ = ["BoardBuilder", "BuildResult"]

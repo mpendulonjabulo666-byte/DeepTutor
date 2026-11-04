@@ -12,6 +12,7 @@ from deeptutor.logging import configure_logging
 from deeptutor.modules.catalog import manifests, module_enabled
 from deeptutor.runtime.mode import RunMode, set_mode
 
+from .board import register as register_board
 from .chat import register as register_chat
 from .common import build_turn_request, console, maybe_run
 from .config_cmd import register as register_config
@@ -41,6 +42,9 @@ config_app = typer.Typer(help="Inspect and apply configuration.")
 session_app = typer.Typer(help="Manage shared sessions.")
 provider_app = typer.Typer(help="Manage provider OAuth login.")
 workspace_app = typer.Typer(help="Manage the user content workspace.")
+board_app = typer.Typer(
+    help="Learning boards: Picture, Notes, Practice and Progress for one topic."
+)
 
 app.add_typer(chat_app, name="chat")
 app.add_typer(skill_app, name="skill")
@@ -50,7 +54,9 @@ app.add_typer(config_app, name="config")
 app.add_typer(session_app, name="session")
 app.add_typer(provider_app, name="provider")
 app.add_typer(workspace_app, name="workspace")
+app.add_typer(board_app, name="board")
 
+register_board(board_app)
 register_chat(chat_app)
 register_skill(skill_app)
 register_plugin(plugin_app)
