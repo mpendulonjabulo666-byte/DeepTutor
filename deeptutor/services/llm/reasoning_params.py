@@ -47,6 +47,12 @@ _PROVIDER_DEFAULT_OFF_PATTERNS: dict[str, tuple[str, ...]] = {
 _MINIMAL_NOT_OFF_PATTERNS: dict[str, tuple[str, ...]] = {
     "gemini": ("gemini-3", "gemini-2.5-pro"),
 }
+# Models whose lowest accepted level is "low": Gemini 3.8 removed "minimal" and
+# answers it with a 400 ("Thinking level MINIMAL is not supported"). Checked
+# before ``_MINIMAL_NOT_OFF_PATTERNS``, which would otherwise match "gemini-3".
+_LOW_IS_LOWEST_PATTERNS: dict[str, tuple[str, ...]] = {
+    "gemini": ("gemini-3.8",),
+}
 _CUSTOM_MODEL_THINKING_STYLES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("qwen3", "qwen-3", "qwq", "qwen-plus"), "enable_thinking"),
     (("deepseek-v4-pro", "deepseek-reasoner", "deepseek-r1"), "thinking_type"),
@@ -146,9 +152,7 @@ def default_reasoning_effort_for(provider: str | None, model: str | None) -> str
     provider_name = (provider or "").strip().lower()
     off_patterns = _PROVIDER_DEFAULT_OFF_PATTERNS.get(provider_name)
     if off_patterns and _matches(model or "", off_patterns):
-        if _matches(model or "", _MINIMAL_NOT_OFF_PATTERNS.get(provider_name, ())):
-            return "minimal"
-        return "none"
+        return thinking_off_effort_for(provider_name, model)
     return None
 
 
@@ -165,6 +169,8 @@ def thinking_off_effort_for(provider: str | None, model: str | None) -> str:
     still an obvious prompt to check this one.
     """
     provider_name = (provider or "").strip().lower()
+    if _matches(model or "", _LOW_IS_LOWEST_PATTERNS.get(provider_name, ())):
+        return "low"
     if _matches(model or "", _MINIMAL_NOT_OFF_PATTERNS.get(provider_name, ())):
         return "minimal"
     return "none"

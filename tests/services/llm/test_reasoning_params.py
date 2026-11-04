@@ -142,3 +142,14 @@ def test_qwen_thinking_models_keep_native_controls(binding, effort, enabled) -> 
     assert build_openai_compatible_reasoning_kwargs(
         spec=None, binding=binding, model="qwen3-235b-a22b", reasoning_effort=effort
     ) == {"extra_body": {"enable_thinking": enabled}}
+
+
+def test_gemini_3_8_uses_low_because_minimal_was_removed():
+    from deeptutor.services.llm.reasoning_params import thinking_off_effort_for
+
+    assert default_reasoning_effort_for("gemini", "gemini-3.8-flash") == "low"
+    assert default_reasoning_effort_for("gemini", "models/gemini-3.8-flash") == "low"
+    assert thinking_off_effort_for("gemini", "gemini-3.8-flash") == "low"
+    # older Gemini 3 models still use "minimal"
+    assert default_reasoning_effort_for("gemini", "gemini-3-flash-preview") == "minimal"
+    assert thinking_off_effort_for("gemini", "gemini-2.5-flash") == "none"
