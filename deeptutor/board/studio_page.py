@@ -136,8 +136,8 @@ $("changeBtn").onclick=function(){$("profileView").classList.add("hidden");$("pr
 $("profileForm").onsubmit=function(ev){ev.preventDefault();$("profileErr").textContent="";
   post("/api/profile",{curriculum:$("curriculum").value,level:$("level").value,programme:$("programme").value,subject:$("subject").value}).then(load).catch(function(e){$("profileErr").textContent=e.message})};
 $("uploadBtn").onclick=function(){$("fileErr").textContent="";var f=$("file").files[0];if(!f){$("fileErr").textContent="Choose a file first.";return}
-  $("uploadBtn").disabled=true;
-  api("POST","/api/docs",f,{"X-Filename":encodeURIComponent(f.name),"Content-Type":"application/octet-stream"}).then(function(){$("file").value="";return load()}).catch(function(e){$("fileErr").textContent=e.message}).then(function(){$("uploadBtn").disabled=false})};
+  $("uploadBtn").disabled=true;$("fileErr").textContent="Reading the file. A scanned PDF is read with Gemini and can take a few minutes. Keep this page open.";$("fileErr").style.color="var(--mute)";
+  api("POST","/api/docs",f,{"X-Filename":encodeURIComponent(f.name),"Content-Type":"application/octet-stream"}).then(function(){$("file").value="";$("fileErr").style.color="";$("fileErr").textContent="";return load()}).catch(function(e){$("fileErr").style.color="";$("fileErr").textContent=e.message}).then(function(){$("uploadBtn").disabled=false})};
 $("topicSel").onchange=function(){$("topicCustom").classList.toggle("hidden",$("topicSel").value!=="__custom__")};
 $("buildBtn").onclick=function(){$("buildErr").textContent="";
   var topic=$("topicSel").value==="__custom__"?$("topicCustom").value:$("topicSel").value;

@@ -231,3 +231,63 @@ def test_pdf_upload_is_read(tmp_path):
 def test_weights_with_single_spacing():
     text = "1. Foundations 10% \n2. Behaviour of structures 25% \nTopic 1: Foundations\nTopic 2: Behaviour of structures\n"
     assert [t["weight"] for t in detect_topics(text)] == [10, 25]
+
+
+def test_scanned_pdf_is_read_with_the_ocr_fallback(tmp_path):
+    from reportlab.pdfgen import canvas
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf)
+    c.rect(50, 50, 100, 100)  # a page with a drawing and no text: stands in for a scan
+    c.save()
+    store = BoardStore(tmp_path / "b")
+    seen = {}
+
+    def fake_ocr(data: bytes) -> str:
+        seen["bytes"] = len(data)
+        return GUIDE
+
+    studio = Studio(store, tmp_path / "s", ocr=fake_ocr)
+    studio.add_doc("scan.pdf", buf.getvalue())
+    assert seen["bytes"] > 0 and studio.topics()[1]["number"] == 2
+
+    from deeptutor.board.ocr import OcrUnavailable
+
+    def no_gemini(data: bytes) -> str:
+        raise OcrUnavailable("Reading scanned PDFs needs Gemini to be your configured model.")
+
+    plain = Studio(store, tmp_path / "s2", ocr=no_gemini)
+    with pytest.raises(StudioError, match="photos of pages"):
+        plain.add_doc("scan.pdf", buf.getvalue())
+
+
+def test_gemini_ocr_splits_pages_and_retries(tmp_path, monkeypatch):
+    from reportlab.pdfgen import canvas
+
+    from deeptutor.board import ocr
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf)
+    for _ in range(12):
+        c.rect(10, 10, 20, 20)
+        c.showPage()
+    c.save()
+    monkeypatch.setattr(ocr, "_gemini_settings", lambda: ("gemini-test", "KEY"))
+    monkeypatch.setattr(ocr.time, "sleep", lambda s: None)
+    calls = []
+
+    class Resp:
+        def __init__(self, code, text=""):
+            self.status_code = code
+            self._t = text
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"text": self._t}]}}]}
+
+    def post(url, headers, json, timeout):
+        calls.append((url, headers["x-goog-api-key"]))
+        return Resp(503) if len(calls) == 1 else Resp(200, f"text{len(calls)}")
+
+    out = ocr.ocr_pdf_with_gemini(buf.getvalue(), post=post)
+    assert len(calls) == 3  # first part retried once, second part once: 12 pages = 2 parts
+    assert "text2" in out and "text3" in out and "gemini-test" in calls[0][0]

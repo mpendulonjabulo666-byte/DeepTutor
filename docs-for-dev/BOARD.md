@@ -31,8 +31,9 @@ A page opens in your browser (`http://localhost:8766/`, this computer only).
 Choose school, NCV or Nated and your level once, type your subject, upload the
 subject guideline and past papers (PDF with real text, Word or text file),
 pick a topic and press **Build board**. A build takes a minute or three. The
-board is made only from the uploaded files; scanned PDFs (photos of pages)
-cannot be read yet. Each board then has **Open**, **PDF**, **Phone file** and
+board is made only from the uploaded files; a PDF that is photos of pages
+(a scan) is read with Gemini, ten pages at a time, which sends those pages to
+Google and can take a few minutes (limit 120 pages). Each board then has **Open**, **PDF**, **Phone file** and
 **Approve**. Your choices and files stay in `data/user/board_studio/`.
 
 ## Commands

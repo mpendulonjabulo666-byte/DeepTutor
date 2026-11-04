@@ -201,6 +201,7 @@ class Studio:
         store: BoardStore,
         folder: Path | str,
         builder_factory: BuilderFactory | None = None,
+        ocr: Callable[[bytes], str] | None = None,
     ) -> None:
         self.store = store
         self.folder = Path(folder)
@@ -209,6 +210,7 @@ class Studio:
         self._lock = threading.Lock()
         self._jobs: dict[str, Job] = {}
         self._builder_factory = builder_factory or self._default_builder
+        self._ocr = ocr
 
     @staticmethod
     def _default_builder(context):
@@ -259,6 +261,8 @@ class Studio:
         if len(current) >= MAX_DOCS:
             raise StudioError("Remove a file first. The limit is 20.")
         text = extract_text(name, data).strip()
+        if len(text) < 200 and name.lower().endswith(".pdf"):
+            text = self._read_scanned(data) or text
         if len(text) < 200:
             raise StudioError(
                 "No readable text found. A scanned PDF (photos of pages) cannot be read yet; "
@@ -269,6 +273,17 @@ class Studio:
         meta = {"id": doc_id, "name": name, "chars": len(text)}
         self._write_index([*current, meta])
         return meta
+
+    def _read_scanned(self, data: bytes) -> str:
+        """A PDF with no text layer is photos of pages: read it with Gemini."""
+        from .ocr import OcrUnavailable, ocr_pdf_with_gemini
+
+        try:
+            return (self._ocr or ocr_pdf_with_gemini)(data).strip()
+        except OcrUnavailable as exc:
+            raise StudioError(f"This PDF is photos of pages. {exc}") from exc
+        except Exception as exc:
+            raise StudioError(f"This PDF is photos of pages and could not be read: {exc}") from exc
 
     def delete_doc(self, doc_id: str) -> None:
         if not re.fullmatch(r"[0-9a-f]{12}", doc_id):
