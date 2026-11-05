@@ -157,6 +157,34 @@ def _chunks(text: str, size: int = 1200) -> list[str]:
     return out
 
 
+_TOPIC_HEAD = re.compile(r"Topic\s+(\d+)\s*[:.\-]\s*(.{3,120}?)\s*$", re.IGNORECASE | re.MULTILINE)
+_SECTION_END = re.compile(r"\n\s*(?:8\s+)?RESOURCE NEEDS", re.IGNORECASE)
+
+
+def topic_section(texts: list[str], topic: str, limit: int = 11_000) -> str:
+    """The guideline's own section for one topic (from its heading to the next topic)."""
+    want = " ".join(topic.lower().split())
+    best = ""
+    for text in texts:
+        heads = list(_TOPIC_HEAD.finditer(text))
+        for i, m in enumerate(heads):
+            name = " ".join(m.group(2).lower().split()).rstrip(".")
+            if name != want and want not in name and name not in want:
+                continue
+            end = len(text)
+            for nxt in heads[i + 1 :]:
+                if nxt.group(1) != m.group(1):
+                    end = nxt.start()
+                    break
+            tail = _SECTION_END.search(text, m.start())
+            if tail and tail.start() < end:
+                end = tail.start()
+            chunk = text[m.start() : end].strip()
+            if len(chunk) > len(best):
+                best = chunk
+    return best[:limit]
+
+
 def pick_passages(texts: list[str], query: str, limit: int = 11_000) -> str:
     """Choose the passages that mention the query words most; keep document order."""
     words = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) > 3}
@@ -338,7 +366,15 @@ class Studio:
     def _run(self, job: Job, profile: dict[str, str], questions: int, with_picture: bool) -> None:
         texts = self.texts()
 
+        section = topic_section(texts, job.topic)
+
         async def context(_kb: str, query: str) -> str:
+            if section and "exam questions" not in query:
+                # the guideline's own section first; add best matches only if it is short
+                extra = ""
+                if len(section) < 3000:
+                    extra = "\n\n---\n\n" + pick_passages(texts, query, 11_000 - len(section))
+                return section + extra
             return pick_passages(texts, query)
 
         try:

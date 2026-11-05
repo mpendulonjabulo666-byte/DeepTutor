@@ -312,3 +312,22 @@ def test_a_build_with_no_notes_and_no_questions_fails_clearly(tmp_path):
     wait_done(studio, job)
     assert job.status == "failed" and "allowance" in job.error
     assert studio.store.list() == []
+
+
+SECTIONED = (
+    "Topic 1: Terminology and components\n\nTopic 2: Measuring, setting out and levelling\n\n"
+    "7.1 Topic 1: Terminology and components\nDefine the terms used on site.\n\n"
+    "7.2 Topic 2: Measuring, setting out and levelling\n7.2.1 Subject Outcome 1: Describe and use "
+    "measuring instruments. Steel tape, ranging rods, dumpy level.\n\n"
+    "7.3 Topic 3: Foundations\nPrinciples of founding structures.\n\n8 RESOURCE NEEDS\nPhysical resources.\n"
+)
+
+
+def test_topic_section_returns_only_that_topic():
+    from deeptutor.board.studio import topic_section
+
+    got = topic_section([SECTIONED], "Measuring, setting out and levelling")
+    assert "dumpy level" in got and "Foundations" not in got and "Physical resources" not in got
+    last = topic_section([SECTIONED], "Foundations")
+    assert "Principles of founding" in last and "Physical resources" not in last
+    assert topic_section([SECTIONED], "Nothing like it") == ""

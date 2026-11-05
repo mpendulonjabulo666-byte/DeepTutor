@@ -75,7 +75,10 @@ EXPLAINERS = {
         {"kp_id": "kp9", "title": "Unknown", "explanation": "x", "check": {}},
     ]
 }
-GOOD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/><text x="1" y="9">A</text></svg>'
+GOOD_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/><circle r="2"/><line x2="3"/><text x="1" y="9">A</text></svg>'
+
+
+GOOD_SVG_3 = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/><circle r="2"/><line x2="3"/></svg>'
 
 
 def fake_llm(fail: str | None = None):
@@ -270,3 +273,45 @@ def test_explainers_are_validated_and_isolated():
     )
     assert failed.board.explainers == [] and any("Explanations" in w for w in failed.board.warnings)
     assert failed.board.notes.sections and failed.board.practice.questions
+
+
+def test_svg_keeps_css_rules_but_drops_external_loads():
+    from deeptutor.board.svg import count_shapes, sanitize_svg
+
+    raw = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+        "<style>@import url('https://fonts.example/x.css'); .b{fill:#ccc;stroke:#000} "
+        ".c{background:url(https://evil.example/p.png)}</style>"
+        '<rect class="b" width="5" height="5"/><line x1="0" y1="0" x2="5" y2="5" class="b"/>'
+        '<path d="M0 0L5 5" class="b"/></svg>'
+    )
+    out = sanitize_svg(raw)
+    assert ".b{fill:#ccc;stroke:#000}" in out
+    assert "@import" not in out and "evil.example" not in out and "fonts.example" not in out
+    assert count_shapes(out) == 3
+    assert (
+        count_shapes(sanitize_svg('<svg xmlns="http://www.w3.org/2000/svg"><text>A</text></svg>'))
+        == 0
+    )
+
+
+def test_picture_without_shapes_is_retried_then_reported():
+    import asyncio
+
+    text_only = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text x="1" y="1">A</text></svg>'
+    asks = []
+
+    async def pic(subject, topic, brief):
+        asks.append(brief)
+        return text_only if len(asks) == 1 else GOOD_SVG_3
+
+    r = asyncio.run(builder(picture=pic).build(subject="CE", topic="P", questions=2))
+    assert len(asks) == 2 and "no drawn shapes" in asks[1] and r.svg
+    asks.clear()
+
+    async def bad(subject, topic, brief):
+        asks.append(brief)
+        return text_only
+
+    r2 = asyncio.run(builder(picture=bad).build(subject="CE", topic="P", questions=2))
+    assert r2.svg is None and any("no drawn shapes" in w for w in r2.board.warnings)

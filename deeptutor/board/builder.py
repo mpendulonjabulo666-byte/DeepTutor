@@ -35,7 +35,7 @@ from .schema import (
     Source,
     slugify,
 )
-from .svg import UnsafeSvg, sanitize_svg
+from .svg import UnsafeSvg, count_shapes, sanitize_svg
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,10 @@ _STYLE = (
     "and everyday words. Explain technical terms the first time they appear. "
     "Use only facts that appear in SOURCE when SOURCE is given. When SOURCE is empty, use only "
     "well-established general knowledge. Never invent figures, standards, regulations or clause "
-    "numbers. If you are unsure of a value, leave it out. Reply with one JSON object and nothing else."
+    "numbers. If you are unsure of a value, leave it out. Teach only what the topic itself covers "
+    "(its outcomes, instruments, methods, calculations). Do not write about marks, weights, ICASS, "
+    "portfolios of evidence or pass rules unless the topic is about them. "
+    "Reply with one JSON object and nothing else."
 )
 
 NOTES_SYSTEM = (
@@ -134,28 +137,30 @@ async def default_context(kb: str, query: str) -> str:
     return str(result.get("content") or result.get("answer") or "")
 
 
-async def default_picture(subject: str, topic: str, brief: str) -> str:
-    """Use the existing visualize pipeline, forced to SVG, and return raw model output."""
-    from deeptutor.agents.visualize.pipeline import VisualizePipeline
-    from deeptutor.services.llm.config import get_llm_config
+SVG_SYSTEM = (
+    "You draw one clear teaching diagram as an SVG for a student's phone. "
+    "Reply with the SVG only, starting with <svg and ending with </svg>.\n"
+    "Rules:\n"
+    '- viewBox="0 0 800 500". Plain white background rectangle first.\n'
+    "- Draw the actual shapes with <rect>, <line>, <path>, <polygon>, <circle>. A diagram made "
+    "only of text is wrong.\n"
+    '- Give EVERY shape explicit fill and stroke attributes, for example fill="#dbeafe" '
+    'stroke="#1e3a8a" stroke-width="3". Do not use CSS classes or a <style> element.\n'
+    "- Labels are <text> with font-size 18 to 22, font-family sans-serif, placed beside or inside "
+    "the shape they name, never overlapping another label. Use short labels.\n"
+    '- Arrows: define <marker id="a"> in <defs> and use marker-end="url(#a)".\n'
+    "- Draw only what the brief asks for. Do not invent dimensions, standards or numbers. "
+    "No scripts, no images, no external links, no animation."
+)
 
-    cfg = get_llm_config()
-    pipeline = VisualizePipeline(
-        api_key=cfg.api_key,
-        base_url=cfg.base_url,
-        api_version=cfg.api_version,
-        language="en",
+
+async def default_picture(subject: str, topic: str, brief: str) -> str:
+    """One direct request for an SVG. Cheaper and more reliable than a multi-step pipeline."""
+    prompt = (
+        f"Subject: {subject}\nTopic: {topic}\nDraw this: {brief}\n"
+        "Keep it simple: 4 to 10 labelled parts."
     )
-    request = (
-        f"Draw one clear, labelled teaching diagram for the topic '{topic}' in {subject}. "
-        f"{brief}\nKeep labels short and readable on a phone screen. Use a plain light background."
-    )
-    analysis = await pipeline.run_analysis(
-        user_input=request, history_context="", render_mode="svg"
-    )
-    return await pipeline.run_code_generation(
-        user_input=request, history_context="", analysis=analysis
-    )
+    return await default_llm(prompt, SVG_SYSTEM)
 
 
 class BoardBuilder:
@@ -286,8 +291,18 @@ class BoardBuilder:
             return Progress(mastery_path=items)
 
         async def picture_task() -> str:
-            raw = await self._picture(subject, topic, brief or board.picture.title)
-            return sanitize_svg(raw)
+            what = brief or board.picture.title
+            for attempt in range(2):
+                ask = what
+                if attempt:
+                    ask += (
+                        "\nIMPORTANT: your last picture had no drawn shapes. Use <rect>, <line> "
+                        "and <path> elements with explicit fill and stroke attributes."
+                    )
+                svg_text = sanitize_svg(await self._picture(subject, topic, ask))
+                if count_shapes(svg_text) >= 3:
+                    return svg_text
+            raise UnsafeSvg("the picture had no drawn shapes, only text")
 
         tasks: list[Awaitable[Any]] = [progress_task()]
         if with_picture:

@@ -52,6 +52,24 @@ def extract_svg(text: str) -> str:
     return match.group(0)
 
 
+_IMPORT = re.compile(r"@import[^;]*;?", re.IGNORECASE)
+_SHAPES = {"rect", "circle", "ellipse", "line", "polyline", "polygon", "path"}
+
+
+def _clean_css(css: str) -> str:
+    css = _IMPORT.sub("", css)
+    return re.sub(r"url\(\s*(?!#)[^)]*\)", "none", css, flags=re.IGNORECASE)
+
+
+def count_shapes(svg: str) -> int:
+    """How many drawn shapes (not text) a cleaned SVG holds."""
+    try:
+        root = DefusedET.fromstring(svg)
+    except Exception:
+        return 0
+    return sum(1 for el in root.iter() if _local(el.tag) in _SHAPES)
+
+
 def _clean_attrs(el: StdET.Element) -> None:
     for key in list(el.attrib):
         name = _local(key)
@@ -72,10 +90,9 @@ def _walk(el: StdET.Element) -> None:
             el.remove(child)
             continue
         if _local(child.tag) == "style":
-            css = child.text or ""
-            if "@import" in css.lower() or _URL_REF.search(css):
-                el.remove(child)
-                continue
+            # Keep the rules (shapes often get their fill and stroke from CSS classes)
+            # and remove only what could load something from outside.
+            child.text = _clean_css(child.text or "")
         _clean_attrs(child)
         _walk(child)
 
@@ -108,4 +125,4 @@ def sanitize_svg(text: str) -> str:
     return out
 
 
-__all__ = ["UnsafeSvg", "extract_svg", "sanitize_svg"]
+__all__ = ["UnsafeSvg", "count_shapes", "extract_svg", "sanitize_svg"]
