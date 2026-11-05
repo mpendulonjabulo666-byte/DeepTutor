@@ -23,7 +23,7 @@ DEFAULT_PORT = 8765
 _ROUTE = re.compile(r"^/b/([a-z0-9][a-z0-9-]{0,79})\.(html|json)$")
 _CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-    "img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    "img-src data:; font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
 
 

@@ -239,6 +239,7 @@ class BoardBuilder:
             board_id=board_id or slugify(subject, topic),
             subject=subject,
             topic=topic,
+            level=level if 0 < len(level) <= 40 else "",
         )
         warnings: list[str] = []
         who = f"Subject: {subject}\nTopic: {topic}" + (f"\nLevel: {level}" if level else "")

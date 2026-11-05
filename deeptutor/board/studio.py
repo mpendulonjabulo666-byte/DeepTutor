@@ -94,6 +94,14 @@ def level_text(profile: dict[str, str]) -> str:
     return ", ".join(bits)
 
 
+def short_level(profile: dict[str, str]) -> str:
+    """A short label for the board header, for example 'NCV Level 2' or 'Grade 11'."""
+    if profile["curriculum"] == "school":
+        return profile["level"]
+    route = {"ncv": "NCV", "nated": "Nated"}[profile["curriculum"]]
+    return f"{route} {profile['level']}"
+
+
 # ---------------------------------------------------------------- documents
 
 
@@ -390,6 +398,8 @@ class Studio:
                 )
             )
             board = result.board
+            board.level = short_level(profile)
+            board.programme = profile.get("programme", "")
             if not board.notes.sections and not board.practice.questions:
                 reasons = " ".join(board.warnings)
                 raise RuntimeError(friendly_error(reasons) or "Nothing could be generated.")
@@ -604,5 +614,5 @@ def make_studio_server(studio: Studio, port: int = DEFAULT_PORT) -> ThreadingHTT
 def _board_csp() -> str:
     return (
         "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-        "img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        "img-src data:; font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     )

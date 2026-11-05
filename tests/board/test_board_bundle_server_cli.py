@@ -268,3 +268,19 @@ def test_cli_export_pdf(cli, tmp_path):
     assert (tmp_path / "civil-planning" / "civil-planning.pdf").is_file()
     bad = runner.invoke(app, ["board", "export", "civil-planning", "-f", "docx", *root])
     assert bad.exit_code == 2
+
+
+def test_bundle_has_vex_logo_fonts_and_prefixed_picture_ids():
+    board, _ = make_board()
+    board.level = "NCV Level 2"
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><marker id="title">'
+        '<path d="M0 0L1 1"/></marker></defs><line x2="5" marker-end="url(#title)"/></svg>'
+    )
+    page = render_bundle(board, svg)
+    assert 'class="vx-logo"' in page and "VEX <b>CIPHER</b>" in page
+    assert page.count("font/woff2;base64,") == 4
+    # the picture cannot take over ids the page relies on, such as id="title"
+    assert 'id="pic-title"' in page and "url(#pic-title)" in page
+    assert page.count('id="title"') == 1
+    assert '"level": "NCV Level 2"' in page

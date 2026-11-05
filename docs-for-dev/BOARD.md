@@ -72,6 +72,16 @@ first. If a section fails to generate, the board is still saved with a warning.
 The PDF includes the diagram only when `svglib` is installed
 (`python -m pip install svglib`); otherwise it points to the phone page.
 
+## Look
+
+The phone page uses the Vex Cipher design: one dark page with Picture, Notes,
+Practice and Progress cards, and tabs that jump to each card. The animated Vex
+"V" logo and the Barlow fonts are embedded from `deeptutor/board/brand.json`
+(fonts under the SIL OFL, see `deeptutor/board/FONT_LICENSE.md`), so the page
+still makes no network request. Animations pause when the page is hidden, and
+stop for people who ask their phone for less motion or switch them off in
+Settings. This is branding only; the board is not connected to Vex.
+
 ## Board JSON (schema version 1)
 
 Defined in `deeptutor/board/schema.py`. Top level: `schema_version`,

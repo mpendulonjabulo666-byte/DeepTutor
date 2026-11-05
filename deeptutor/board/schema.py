@@ -186,6 +186,8 @@ class Board(_Model):
     board_id: str
     subject: str = Field(max_length=200)
     topic: str = Field(max_length=200)
+    level: str = Field(default="", max_length=80)
+    programme: str = Field(default="", max_length=120)
     generated_at: str = Field(default_factory=utc_now_iso)
     sources: list[Source] = Field(default_factory=list, max_length=50)
     picture: Picture = Field(default_factory=Picture)
