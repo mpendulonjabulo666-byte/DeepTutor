@@ -74,7 +74,7 @@ The PDF includes the diagram only when `svglib` is installed
 
 ## Look
 
-The phone page uses the Vex Cipher design: one dark page with Picture, Notes,
+The phone page uses the Vex design: one dark page with Picture, Notes,
 Practice and Progress cards, and tabs that jump to each card. The animated Vex
 "V" logo and the Barlow fonts are embedded from `deeptutor/board/brand.json`
 (fonts under the SIL OFL, see `deeptutor/board/FONT_LICENSE.md`), so the page

@@ -3,7 +3,7 @@
 No network request, no external font or library, no service worker. Copy the
 file to a phone, open it in Chrome, and it works in airplane mode.
 
-The page uses the Vex Cipher look: the animated Vex "V" logo and the Barlow
+The page uses the Vex look: the animated Vex "V" logo and the Barlow
 fonts are embedded from ``brand.json`` (fonts under the SIL OFL, see
 ``FONT_LICENSE.md``).
 
@@ -288,7 +288,7 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
 <aside class="side" id="side">
  <div class="brand">
   <div class="logo-wrap">__LOGO__</div>
-  <div class="wordmark"><span class="wm">VEX <b>CIPHER</b></span><span class="tag">YOUR PRIVATE WORLD. PROTECTED.</span></div>
+  <div class="wordmark"><span class="wm">VEX</span><span class="tag">YOUR PRIVATE WORLD. PROTECTED.</span></div>
   <button class="menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
  </div>
  <nav class="side-nav" id="sideNav" aria-label="Board menu">

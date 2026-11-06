@@ -151,7 +151,7 @@ def test_http_flow_and_safety(tmp_path):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         code, headers, body = call(port, "/")
-        assert code == 200 and b"Learning Board Studio" in body
+        assert code == 200 and b"Vex Study Board" in body
         assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
         # wrong Host header (DNS rebinding) is refused
         assert call(port, "/api/state", host="evil.example")[0] == 403
