@@ -231,6 +231,17 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
 @keyframes flash{0%{box-shadow:0 0 0 2px var(--or),0 0 24px rgba(255,90,0,.6)}100%{box-shadow:0 0 0 0 transparent}}
 .still .logo-wrap,.still .crane-hook,.still .win{animation:none}
 .still .rv{opacity:1;transform:none}
+/* ---------- big screen: picture stays, notes scroll beside it ---------- */
+@media (min-width:1200px){
+ .main{max-width:1400px}
+ .study{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;align-items:start}
+ .study #s-picture{position:sticky;top:calc(var(--stick) + 12px);margin-bottom:18px}
+ .study .pic-grid,.study .notes-grid{grid-template-columns:1fr}
+ .study .frame svg{max-height:58vh}
+ .study #s-notes{margin-bottom:18px}
+}
+.nsec{transition:background .25s,border-color .25s;border-left:3px solid transparent;padding-left:10px;margin-left:-13px}
+.nsec.cur{border-left-color:var(--or);background:rgba(255,122,24,.06)}
 /* ---------- tablet / phone ---------- */
 @media (max-width:1023px){
  :root{--stick:64px}
@@ -352,6 +363,7 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
   <button class="tab" role="tab" type="button" data-t="s-progress" aria-selected="false"><svg class="ic" viewBox="0 0 24 24"><path d="M5 20V12M10 20V5M15 20v-6M20 20V9"/></svg>Progress</button>
  </div>
 
+ <div class="study">
  <section class="card sec" id="s-picture" aria-labelledby="picLab">
   <p class="lab" id="picLab"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Picture</p>
   <h2 class="ttl" id="picTitle"></h2>
@@ -363,6 +375,7 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
   <div class="notes-grid"><div id="notesMain"></div><div class="side-col" id="notesSide"></div></div>
   <div class="xp" id="explainers"></div>
  </section>
+ </div>
 
  <div class="duo">
   <section class="card sec" id="s-practice" aria-labelledby="pracLab"></section>
@@ -466,11 +479,12 @@ if("IntersectionObserver" in window){
 }
 
 /* ---- picture ---- */
+var PICSVG=null;
 (function(){var holder=$("picture-svg"),svg=holder.querySelector("svg"),frame=$("frame");
  $("picTitle").textContent=(B.picture&&B.picture.title)||"Diagram";
  $("cap").textContent=(B.picture&&B.picture.caption)||"";
  if(!svg){frame.removeAttribute("role");frame.removeAttribute("tabindex");frame.style.cursor="default";frame.style.background="#0c0c11";frame.appendChild(el("p",{class:"empty",text:"No picture for this topic. Read the notes instead."}));}
- else{svg.setAttribute("role","img");svg.setAttribute("aria-label",(B.picture&&(B.picture.alt||B.picture.title))||"Diagram");frame.appendChild(svg);frame.appendChild(el("span",{class:"hint",text:"Tap to enlarge"}));
+ else{PICSVG=svg;svg.setAttribute("role","img");svg.setAttribute("aria-label",(B.picture&&(B.picture.alt||B.picture.title))||"Diagram");frame.appendChild(svg);frame.appendChild(el("span",{class:"hint",text:"Tap to enlarge"}));
   function zoom(){var z=$("zbox");clear(z);z.appendChild(svg.cloneNode(true));openSheet("zoom")}
   frame.addEventListener("click",zoom);frame.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();zoom()}});$("zbox").addEventListener("click",closeSheets)}
  holder.remove();
@@ -497,6 +511,23 @@ var nb=B.notes||{};
  if(fx.length){var f=el("div",{class:"box"});f.appendChild(el("h3",{text:"Formulas"}));fx.forEach(function(x,i){var c=el("div",{class:"fx",id:"fx-"+i},[el("strong",{text:x.name}),el("code",{text:x.latex})]);if(x.explanation)c.appendChild(el("div",{text:x.explanation}));f.appendChild(c)});s.appendChild(f)}
  var ex=B.explainers||[],box=$("explainers");
  if(ex.length){box.appendChild(el("h3",{text:"Explain it to me"}));ex.forEach(function(e,i){var d=el("details",{class:"xd",id:"xd-"+i});d.appendChild(el("summary",{text:e.title}));var inner=el("div",{class:"xb"});d.appendChild(inner);var done=false;d.addEventListener("toggle",function(){if(d.open&&!done){done=true;renderExplainer(inner,e)}});box.appendChild(d)})}
+})();
+/* ---- big screen: the part of the picture being read lights up ---- */
+(function(){
+ if(!("IntersectionObserver" in window))return;
+ var secs=[].slice.call(document.querySelectorAll(".nsec"));if(!secs.length)return;
+ function norm(t){return String(t||"").toLowerCase().replace(/\s+/g," ").trim()}
+ function key(t){return t.replace(/\([^)]*\)/g," ").split(" ").filter(function(w){return w.length>1&&!/\d/.test(w)}).join(" ")}
+ var texts=PICSVG?[].slice.call(PICSVG.querySelectorAll("text")).map(function(n){var t=norm(n.textContent);return{n:n,t:key(t)||(t.length>=3?t:""),fill:n.getAttribute("fill"),w:n.getAttribute("font-weight")}}).filter(function(o){return o.t.length>=2&&!/^[\d.,\s]+[a-z\u00b0%]{0,3}$/i.test(o.t)}):[];
+ var cur=null;
+ function show(sec){
+  if(cur===sec)return;cur=sec;secs.forEach(function(x){x.classList.toggle("cur",x===sec)});
+  var body=norm(sec.textContent);
+  texts.forEach(function(o){var on=(" "+body+" ").replace(/[^a-z0-9 ]/g," ").indexOf(" "+o.t+" ")>-1;
+   if(on){o.n.setAttribute("fill","#d9480f");o.n.setAttribute("font-weight","700")}
+   else{if(o.fill===null)o.n.removeAttribute("fill");else o.n.setAttribute("fill",o.fill);if(o.w===null)o.n.removeAttribute("font-weight");else o.n.setAttribute("font-weight",o.w)}})}
+ var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&window.matchMedia("(min-width:1200px)").matches)show(e.target)})},{rootMargin:"-30% 0px -55% 0px"});
+ secs.forEach(function(x){io.observe(x)});
 })();
 $("explainBtn").addEventListener("click",function(){var d=document.querySelector("details.xd");if(d){d.open=true;go("explainers",d)}else go("s-notes")});
 
