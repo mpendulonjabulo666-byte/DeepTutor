@@ -154,8 +154,45 @@ SVG_SYSTEM = (
 )
 
 
+ENGINE_SYSTEM = (
+    "You choose a drawing template for a study diagram and fill in its numbers. "
+    "Reply with JSON only: {\"template\": name, \"params\": {...}} or {\"template\": \"none\"} "
+    "when no template fits the brief. Use only the templates listed. Use numbers that appear in the "
+    "source or brief; if none are given, use simple realistic example values."
+)
+
+
+async def engine_picture(subject: str, topic: str, brief: str, llm=None) -> str | None:
+    """Pick a template and draw it with code, so the labels and numbers are exact.
+
+    Returns None when no template fits or the numbers cannot make a correct picture.
+    """
+    from .diagrams import DiagramError, catalogue, render
+
+    ask = llm or default_llm
+    try:
+        raw = await ask(
+            f"Subject: {subject}\nTopic: {topic}\nBrief: {brief}\n\nTEMPLATES:\n{catalogue()}",
+            ENGINE_SYSTEM,
+        )
+        data = parse_json_response(raw, fallback=None)
+        if not isinstance(data, dict):
+            return None
+        name = str(data.get("template", "none"))
+        if name == "none":
+            return None
+        svg, _tpl = render(name, data.get("params") or {})
+        return svg
+    except (DiagramError, ValueError, TypeError, AttributeError) as exc:
+        logger.info("Diagram engine skipped: %s", exc)
+        return None
+
+
 async def default_picture(subject: str, topic: str, brief: str) -> str:
-    """One direct request for an SVG. Cheaper and more reliable than a multi-step pipeline."""
+    """Exact drawing from a template when one fits; otherwise one direct SVG request."""
+    drawn = await engine_picture(subject, topic, brief)
+    if drawn:
+        return drawn
     prompt = (
         f"Subject: {subject}\nTopic: {topic}\nDraw this: {brief}\n"
         "Keep it simple: 4 to 10 labelled parts."
