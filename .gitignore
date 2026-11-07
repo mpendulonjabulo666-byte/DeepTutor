@@ -294,3 +294,8 @@ dmypy.json
 *.mp3
 *.wav
 *.ogg
+
+# Vex pictures: personal downloads stay local
+board_pictures/*
+!board_pictures/README.md
+!board_pictures/.gitkeep
