@@ -451,10 +451,26 @@ _CSP = (
 )
 
 
-def make_studio_server(studio: Studio, port: int = DEFAULT_PORT) -> ThreadingHTTPServer:
+def make_studio_server(
+    studio: Studio, port: int = DEFAULT_PORT, *, phone_token: str | None = None
+) -> ThreadingHTTPServer:
+    """``phone_token`` opens the studio to other devices on your Wi-Fi.
+
+    Every request must then carry the secret token (first in the link, then in a
+    cookie). Without it the server answers only 127.0.0.1 and localhost.
+    """
+    import hmac
+
     from .studio_page import PAGE
 
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+
+    def _cookie_token(header: str) -> str:
+        for part in header.split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == "vb":
+                return value
+        return ""
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "BoardStudio"
@@ -482,7 +498,36 @@ def make_studio_server(studio: Studio, port: int = DEFAULT_PORT) -> ThreadingHTT
             self._send(code, json.dumps(data).encode("utf-8"), "application/json")
 
         def _host_ok(self) -> bool:
-            return (self.headers.get("Host") or "").lower() in allowed_hosts
+            host = (self.headers.get("Host") or "").lower()
+            if phone_token is None:
+                return host in allowed_hosts
+            if host in allowed_hosts:
+                return True  # the laptop itself
+            if not host.endswith(f":{port}"):
+                return False
+            given = _cookie_token(self.headers.get("Cookie") or "")
+            return hmac.compare_digest(given, phone_token)
+
+        def _phone_login(self) -> bool:
+            """Handle the one-time link: set the cookie and go to the page."""
+            if phone_token is None:
+                return False
+            parts = urlsplit(self.path)
+            m = re.search(r"(?:^|&)k=([0-9A-Za-z_-]+)", parts.query)
+            if parts.path != "/" or not m:
+                return False
+            if not hmac.compare_digest(m.group(1), phone_token):
+                self._json(403, {"error": "That link is not valid. Open the new link from the laptop."})
+                return True
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.send_header(
+                "Set-Cookie", f"vb={phone_token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800"
+            )
+            self.send_header("Content-Length", "0")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return True
 
         def _post_ok(self) -> bool:
             # A custom header cannot be sent by another website without our consent.
@@ -513,6 +558,8 @@ def make_studio_server(studio: Studio, port: int = DEFAULT_PORT) -> ThreadingHTT
         do_HEAD = do_GET  # noqa: N815
 
         def _get(self) -> None:
+            if self._phone_login():
+                return
             if not self._host_ok():
                 return self._json(403, {"error": "Wrong host."})
             path = urlsplit(self.path).path
@@ -608,7 +655,8 @@ def make_studio_server(studio: Studio, port: int = DEFAULT_PORT) -> ThreadingHTT
                 return self._json(400, {"error": "That request was not understood."})
             self._json(404, {"error": "Not found."})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    bind = "0.0.0.0" if phone_token else "127.0.0.1"  # noqa: S104 - token required
+    return ThreadingHTTPServer((bind, port), Handler)
 
 
 def _board_csp() -> str:

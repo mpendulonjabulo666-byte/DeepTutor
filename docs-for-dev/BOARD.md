@@ -36,6 +36,20 @@ board is made only from the uploaded files; a PDF that is photos of pages
 Google and can take a few minutes (limit 120 pages). Each board then has **Open**, **PDF**, **Phone file** and
 **Approve**. Your choices and files stay in `data/user/board_studio/`.
 
+## Upload from your phone (Vboard)
+
+```powershell
+deeptutor board studio --phone
+```
+
+The laptop prints a secret link. Open it once on your phone (same Wi-Fi, or the
+laptop's hotspot). The phone can then pick files from its Downloads or Files
+app, choose the topic and press Build; the board is built on the laptop. The
+link changes every time you start and is needed for every request. While it
+runs, anyone who has the link can use Vboard, so do not share it, and press
+Ctrl+C when done. Without `--phone` only the laptop can reach it. It is not a
+public website and nothing is sent outside your network except the model calls.
+
 ## Free Gemini limits
 
 On Google's free tier, `gemini-3.8-flash` allows about 20 requests a day (as

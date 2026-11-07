@@ -3,7 +3,7 @@
 PAGE = r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vex Study Board</title>
+<title>Vboard</title>
 <style>
 :root{--bg:#f6f8fb;--card:#fff;--ink:#14213d;--mute:#5b6677;--line:#dde3ec;--brand:#1b3a6b;--accent:#4c9a2a;--bad:#b3261e;--warn:#8a5a00}
 @media (prefers-color-scheme:dark){:root{--bg:#0e1522;--card:#16202f;--ink:#e8edf5;--mute:#9aa7ba;--line:#2a3649;--brand:#8db4ff;--accent:#7bd155;--bad:#ff8a80;--warn:#f0c36a}}
@@ -36,7 +36,7 @@ li:first-child{border-top:0}
 @media (prefers-reduced-motion:reduce){.bar i{animation:none;width:100%}}
 </style></head>
 <body><main>
-<h1>Vex Study Board</h1>
+<h1>Vboard</h1>
 <p class="sub">Pick your level once, upload your guideline, choose a topic, press Build. Runs on this computer only.</p>
 
 <section class="card" id="c1"><h2><span class="num">1</span>Your level</h2>

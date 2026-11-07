@@ -151,7 +151,7 @@ def test_http_flow_and_safety(tmp_path):
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         code, headers, body = call(port, "/")
-        assert code == 200 and b"Vex Study Board" in body
+        assert code == 200 and b"Vboard" in body
         assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
         # wrong Host header (DNS rebinding) is refused
         assert call(port, "/api/state", host="evil.example")[0] == 403
@@ -331,3 +331,35 @@ def test_topic_section_returns_only_that_topic():
     last = topic_section([SECTIONED], "Foundations")
     assert "Principles of founding" in last and "Physical resources" not in last
     assert topic_section([SECTIONED], "Nothing like it") == ""
+
+
+def test_phone_mode_needs_the_secret_link(tmp_path):
+    import http.client
+    import threading
+
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio, make_studio_server
+
+    studio = Studio(BoardStore(tmp_path), tmp_path / "s")
+    server = make_studio_server(studio, 0, phone_token="secrettoken123")
+    port = server.server_address[1]
+    # the port is only known after binding, so rebuild with it
+    server.server_close()
+    server = make_studio_server(studio, port, phone_token="secrettoken123")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        def get(path, headers=None):
+            c = http.client.HTTPConnection("127.0.0.1", port)
+            c.request("GET", path, headers={"Host": f"192.168.1.5:{port}", **(headers or {})})
+            r = c.getresponse()
+            return r.status, r.getheader("Set-Cookie"), r.read()
+
+        assert get("/")[0] == 403
+        assert get("/?k=wrong")[0] == 403
+        code, cookie, _ = get("/?k=secrettoken123")
+        assert code == 302 and "vb=secrettoken123" in cookie and "HttpOnly" in cookie
+        code, _, body = get("/", {"Cookie": "vb=secrettoken123"})
+        assert code == 200 and b"Vboard" in body
+        assert get("/api/state", {"Cookie": "vb=nope"})[0] == 403
+    finally:
+        server.shutdown()

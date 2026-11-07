@@ -279,7 +279,7 @@ def test_bundle_has_vex_logo_fonts_and_prefixed_picture_ids():
     )
     page = render_bundle(board, svg)
     assert (
-        'class="vx-logo"' in page and '<span class="wm">VEX</span>' in page and "CIPHER" not in page
+        'class="vx-logo"' in page and '<span class="wm">VBOARD</span>' in page and "CIPHER" not in page
     )
     assert page.count("font/woff2;base64,") == 4
     # the picture cannot take over ids the page relies on, such as id="title"

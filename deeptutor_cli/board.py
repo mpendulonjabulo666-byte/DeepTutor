@@ -166,8 +166,11 @@ def register(app: typer.Typer) -> None:
         port: int = typer.Option(8766, "--port"),
         root: Path | None = typer.Option(None, "--root", help="Where boards are stored."),
         open_browser: bool = typer.Option(True, "--open-browser/--no-browser"),
+        phone: bool = typer.Option(
+            False, "--phone", help="Also let your phone on the same Wi-Fi upload files (secret link)."
+        ),
     ) -> None:
-        """Open the Learning Board Studio in your browser: level, upload, topic, Build."""
+        """Open Vboard in your browser: level, upload, topic, Build."""
         import webbrowser
 
         from deeptutor.board.studio import Studio, make_studio_server
@@ -184,11 +187,33 @@ def register(app: typer.Typer) -> None:
             console.print(f"[yellow]Could not create default settings: {exc}[/]")
         store = _store(root)
         folder = store.root.parent / "board_studio" if root is None else Path(root) / "_studio"
-        server = make_studio_server(Studio(store, folder), port)
+        token = None
+        if phone:
+            import secrets
+            import socket
+
+            token = secrets.token_urlsafe(12)
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("10.255.255.255", 1))  # no traffic is sent
+                    ip = s.getsockname()[0]
+            except OSError:
+                ip = "YOUR-LAPTOP-IP"
+        server = make_studio_server(Studio(store, folder), port, phone_token=token)
         url = f"http://localhost:{port}/"
-        console.print(
-            f"Studio is open at [bold]{url}[/]. Only this computer can reach it. Press Ctrl+C to stop."
-        )
+        if token:
+            console.print(
+                f"Vboard is open at [bold]{url}[/].\n"
+                f"On your phone (same Wi-Fi), open this link once:\n\n"
+                f"    [bold]http://{ip}:{port}/?k={token}[/]\n\n"
+                "The link is secret and changes every time you start. Anyone with it can use "
+                "Vboard while it runs, so do not share it. Press Ctrl+C to stop."
+            )
+        else:
+            console.print(
+                f"Vboard is open at [bold]{url}[/]. Only this computer can reach it. "
+                "Press Ctrl+C to stop."
+            )
         if open_browser:
             webbrowser.open(url)
         try:
