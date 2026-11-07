@@ -36,6 +36,15 @@ board is made only from the uploaded files; a PDF that is photos of pages
 Google and can take a few minutes (limit 120 pages). Each board then has **Open**, **PDF**, **Phone file** and
 **Approve**. Your choices and files stay in `data/user/board_studio/`.
 
+## Focus box and Trash
+
+Before you press **Build board**, the box *Tell the AI where to focus* takes
+instructions such as "go deep on levelling readings" or "keep it simple for
+Level 2". They shape emphasis and wording; the board is still made only from
+your files. **Delete** on a board moves it to Trash (inside
+`data/user/board_studio/trash/`), and **Restore** brings it back. Nothing is
+erased by the button.
+
 ## Upload from your phone (Vboard)
 
 ```powershell

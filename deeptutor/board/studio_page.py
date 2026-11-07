@@ -16,7 +16,7 @@ h1{font-size:1.5rem;margin:12px 0 2px;color:var(--brand)}
 .card h2{font-size:1.05rem;margin:0 0 10px}
 .num{display:inline-block;width:1.6rem;height:1.6rem;line-height:1.6rem;text-align:center;border-radius:50%;background:var(--brand);color:var(--bg);font-size:.9rem;margin-right:8px}
 label{display:block;font-weight:600;margin:12px 0 4px}
-select,input[type=text],input[type=number]{width:100%;min-height:46px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+select,textarea,input[type=text],input[type=number]{width:100%;min-height:46px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
 button,.btn{min-height:46px;padding:8px 16px;border:0;border-radius:10px;background:var(--brand);color:var(--bg);font:inherit;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 button.ghost,.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}
 button:disabled{opacity:.5;cursor:default}
@@ -66,6 +66,8 @@ li:first-child{border-top:0}
  <label for="topicSel">Topic</label>
  <select id="topicSel"></select>
  <input type="text" id="topicCustom" class="hidden" maxlength="200" placeholder="Type the topic" style="margin-top:8px">
+ <label for="focus">Tell the AI where to focus (optional)</label>
+ <textarea id="focus" maxlength="1000" rows="3" placeholder="Example: go deep on levelling readings, keep the wording simple for Level 2, add an extra example on reduced levels."></textarea>
  <label for="qn">Number of questions</label>
  <input type="number" id="qn" min="3" max="30" value="10">
  <label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="pic" checked> Draw a picture</label>
@@ -75,7 +77,8 @@ li:first-child{border-top:0}
 
 <section class="card" id="c4"><h2><span class="num">4</span>Your boards</h2>
  <p class="hint" style="margin-top:0">A new board is a draft. Read it against your guideline, then press Approve.</p>
- <ul id="boardList"></ul></section>
+ <ul id="boardList"></ul>
+ <div id="trashBox" class="hidden"><h3 style="margin:16px 0 4px;font-size:15px">Trash</h3><ul id="trashList"></ul></div></section>
 </main>
 <script>
 (function(){
@@ -117,7 +120,10 @@ function render(){
     function link(t,h,dl){var a=el("a",t,"btn ghost");a.href=h;if(dl)a.download=dl;else a.target="_blank";a.rel="noopener";r.appendChild(a)}
     link("Open","/b/"+b.id+".html");link("PDF","/b/"+b.id+".pdf",b.id+".pdf");link("Phone file","/b/"+b.id+".html",b.id+".html");
     if(b.status!=="reviewed"){var ap=el("button","Approve");ap.type="button";ap.onclick=function(){post("/api/boards/"+b.id+"/approve").then(load).catch(function(e){$("buildErr").textContent=e.message})};r.appendChild(ap)}
+    var dl=el("button","Delete","ghost");dl.type="button";dl.onclick=function(){if(confirm("Delete the board "+b.topic+"? It moves to Trash and you can restore it."))post("/api/boards/"+b.id+"/delete").then(load).catch(function(e){$("buildErr").textContent=e.message})};r.appendChild(dl);
     li.appendChild(r);bl.appendChild(li)});
+  var tl=$("trashList");tl.textContent="";$("trashBox").classList.toggle("hidden",!(S.trash||[]).length);
+  (S.trash||[]).forEach(function(t){var li=el("li");li.appendChild(el("span",t.id));var rb=el("button","Restore","ghost");rb.type="button";rb.onclick=function(){post("/api/trash/"+t.key+"/restore").then(load).catch(function(e){$("buildErr").textContent=e.message})};li.appendChild(rb);tl.appendChild(li)});
   job(S.job);
 }
 function job(j){
@@ -141,7 +147,7 @@ $("uploadBtn").onclick=function(){$("fileErr").textContent="";var f=$("file").fi
 $("topicSel").onchange=function(){$("topicCustom").classList.toggle("hidden",$("topicSel").value!=="__custom__")};
 $("buildBtn").onclick=function(){$("buildErr").textContent="";
   var topic=$("topicSel").value==="__custom__"?$("topicCustom").value:$("topicSel").value;
-  post("/api/build",{topic:topic,questions:parseInt($("qn").value,10)||10,with_picture:$("pic").checked}).then(function(d){S.job=d.job;job(d.job)}).catch(function(e){$("buildErr").textContent=e.message})};
+  post("/api/build",{topic:topic,questions:parseInt($("qn").value,10)||10,with_picture:$("pic").checked,focus:$("focus").value}).then(function(d){S.job=d.job;job(d.job)}).catch(function(e){$("buildErr").textContent=e.message})};
 load();
 })();
 </script></body></html>

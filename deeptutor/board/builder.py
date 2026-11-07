@@ -233,6 +233,7 @@ class BoardBuilder:
         questions: int = 10,
         with_picture: bool = True,
         board_id: str | None = None,
+        focus: str = "",
     ) -> BuildResult:
         questions = max(1, min(int(questions), MAX_QUESTIONS))
         board = Board(
@@ -243,6 +244,12 @@ class BoardBuilder:
         )
         warnings: list[str] = []
         who = f"Subject: {subject}\nTopic: {topic}" + (f"\nLevel: {level}" if level else "")
+        focus = " ".join(str(focus or "").split())[:1000]
+        if focus:
+            who += (
+                "\nTutor instructions (follow them for emphasis, depth and wording; "
+                f"never add facts that are not in the source): {focus}"
+            )
 
         notes_ctx = questions_ctx = ""
         if kb:

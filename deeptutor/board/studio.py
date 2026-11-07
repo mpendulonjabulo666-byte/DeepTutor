@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import re
+import shutil
 import threading
 import time
 from typing import Any, Callable
@@ -351,7 +352,9 @@ class Studio:
         return list(merged.values())
 
     # build
-    def start_build(self, topic: str, questions: int, with_picture: bool) -> Job:
+    def start_build(
+        self, topic: str, questions: int, with_picture: bool, focus: str = ""
+    ) -> Job:
         profile = self.profile()
         if not profile:
             raise StudioError("Choose your level and subject first.")
@@ -367,11 +370,13 @@ class Studio:
             job = Job(id=uuid.uuid4().hex[:10], topic=topic)
             self._jobs[job.id] = job
         threading.Thread(
-            target=self._run, args=(job, profile, questions, with_picture), daemon=True
+            target=self._run, args=(job, profile, questions, with_picture, focus), daemon=True
         ).start()
         return job
 
-    def _run(self, job: Job, profile: dict[str, str], questions: int, with_picture: bool) -> None:
+    def _run(
+        self, job: Job, profile: dict[str, str], questions: int, with_picture: bool, focus: str = ""
+    ) -> None:
         texts = self.texts()
 
         section = topic_section(texts, job.topic)
@@ -395,6 +400,7 @@ class Studio:
                     level=level_text(profile),
                     questions=questions,
                     with_picture=with_picture,
+                    focus=focus,
                 )
             )
             board = result.board
@@ -413,6 +419,47 @@ class Studio:
             job.status = "failed"
         finally:
             job.finished = time.time()
+
+    # -- trash (nothing is erased; a deleted board can be restored)
+    @property
+    def trash_dir(self) -> Path:
+        return self.folder / "trash"
+
+    def trash_board(self, board_id: str) -> None:
+        src = self.store.board_dir(board_id)
+        if not src.is_dir():
+            raise BoardNotFound(board_id)
+        self.trash_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(self.trash_dir / f"{board_id}__{int(time.time())}"))
+
+    def trashed(self) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        if self.trash_dir.is_dir():
+            for d in sorted(self.trash_dir.iterdir(), reverse=True):
+                bid, _, ts = d.name.partition("__")
+                if d.is_dir() and ts.isdigit():
+                    out.append({"key": d.name, "id": bid, "deleted_at": int(ts)})
+        return out
+
+    def restore_board(self, key: str) -> str:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,79}__\d+", key or ""):
+            raise StudioError("That request was not understood.")
+        src = self.trash_dir / key
+        if not src.is_dir():
+            raise BoardNotFound(key)
+        bid = key.split("__")[0]
+        dest = self.store.board_dir(bid)
+        if dest.exists():
+            raise StudioError("A board with that name already exists. Delete or rename it first.")
+        self.store.root.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dest))
+        return bid
+
+    def empty_trash_older_than_days(self, days: int = 30) -> None:  # not called automatically
+        cutoff = time.time() - days * 86400
+        for t in self.trashed():
+            if t["deleted_at"] < cutoff:
+                shutil.rmtree(self.trash_dir / t["key"], ignore_errors=True)
 
     def job(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -437,6 +484,7 @@ class Studio:
                 }
                 for b in self.store.list()
             ],
+            "trash": self.trashed(),
             "job": latest.public() if latest else None,
         }
 
@@ -640,8 +688,16 @@ def make_studio_server(
                         str(body.get("topic", "")),
                         int(body.get("questions", 10) or 10),
                         bool(body.get("with_picture", True)),
+                        str(body.get("focus", "")),
                     )
                     return self._json(200, {"job": job.public()})
+                m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/delete", path)
+                if m:
+                    studio.trash_board(m.group(1))
+                    return self._json(200, {"ok": True})
+                m = re.fullmatch(r"/api/trash/([a-z0-9-]{1,80}__\d+)/restore", path)
+                if m:
+                    return self._json(200, {"board": studio.restore_board(m.group(1))})
                 m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/approve", path)
                 if m:
                     studio.store.mark_reviewed(m.group(1))

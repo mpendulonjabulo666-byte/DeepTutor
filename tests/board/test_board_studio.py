@@ -363,3 +363,40 @@ def test_phone_mode_needs_the_secret_link(tmp_path):
         assert get("/api/state", {"Cookie": "vb=nope"})[0] == 403
     finally:
         server.shutdown()
+
+
+def test_focus_reaches_every_prompt_and_trash_restores(tmp_path):
+    import asyncio
+
+    from deeptutor.board.builder import BoardBuilder
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio
+
+    seen: list[str] = []
+
+    async def llm(prompt: str, system_prompt: str = "") -> str:
+        seen.append(prompt)
+        return "{}"
+
+    async def pic(*a):
+        return "<svg xmlns='http://www.w3.org/2000/svg'/>"
+
+    async def ctx(kb, q):
+        return "source text"
+
+    asyncio.run(
+        BoardBuilder(llm=llm, picture=pic, context=ctx).build(
+            subject="S", topic="T", kb="k", with_picture=False, focus="go deep on levelling"
+        )
+    )
+    assert seen and all("go deep on levelling" in p for p in seen[:1])
+
+    store = BoardStore(tmp_path / "boards")
+    d = store.board_dir("demo-board")
+    d.mkdir(parents=True)
+    (d / "board.json").write_text("{}")
+    studio = Studio(store, tmp_path / "studio")
+    studio.trash_board("demo-board")
+    assert not d.exists() and studio.trashed()[0]["id"] == "demo-board"
+    assert studio.restore_board(studio.trashed()[0]["key"]) == "demo-board"
+    assert (d / "board.json").exists() and studio.trashed() == []
