@@ -22,6 +22,9 @@ from urllib.parse import unquote, urlsplit
 import uuid
 
 from .bundle import render_bundle, write_bundle
+from .editing import BoardEditor, EditError
+from .pictures import PictureError, PictureLibrary
+from .schema import Picture
 from .store import BoardNotFound, BoardStore
 
 DEFAULT_PORT = 8766
@@ -252,6 +255,7 @@ class Studio:
         folder: Path | str,
         builder_factory: BuilderFactory | None = None,
         ocr: Callable[[bytes], str] | None = None,
+        chat_llm: Callable[..., Any] | None = None,
     ) -> None:
         self.store = store
         self.folder = Path(folder)
@@ -261,6 +265,8 @@ class Studio:
         self._jobs: dict[str, Job] = {}
         self._builder_factory = builder_factory or self._default_builder
         self._ocr = ocr
+        self.library = PictureLibrary(self.folder / "pictures")
+        self.editor = BoardEditor(store, chat_llm)
 
     @staticmethod
     def _default_builder(context):
@@ -353,7 +359,12 @@ class Studio:
 
     # build
     def start_build(
-        self, topic: str, questions: int, with_picture: bool, focus: str = ""
+        self,
+        topic: str,
+        questions: int,
+        with_picture: bool,
+        focus: str = "",
+        picture_id: str = "",
     ) -> Job:
         profile = self.profile()
         if not profile:
@@ -370,14 +381,32 @@ class Studio:
             job = Job(id=uuid.uuid4().hex[:10], topic=topic)
             self._jobs[job.id] = job
         threading.Thread(
-            target=self._run, args=(job, profile, questions, with_picture, focus), daemon=True
+            target=self._run, args=(job, profile, questions, with_picture, focus, picture_id), daemon=True
         ).start()
         return job
 
     def _run(
-        self, job: Job, profile: dict[str, str], questions: int, with_picture: bool, focus: str = ""
+        self,
+        job: Job,
+        profile: dict[str, str],
+        questions: int,
+        with_picture: bool,
+        focus: str = "",
+        picture_id: str = "",
     ) -> None:
         texts = self.texts()
+        own_svg = ""
+        if picture_id:
+            try:
+                own_svg, pmeta = self.library.svg_for(picture_id)
+            except PictureError as exc:
+                job.error, job.status, job.finished = str(exc), "failed", time.time()
+                return
+            focus = (focus + " " if focus else "") + (
+                f"The tutor chose this picture for the board: {pmeta['caption']}. "
+                "Refer to it where it helps."
+            )
+            with_picture = False
 
         section = topic_section(texts, job.topic)
 
@@ -409,7 +438,14 @@ class Studio:
             if not board.notes.sections and not board.practice.questions:
                 reasons = " ".join(board.warnings)
                 raise RuntimeError(friendly_error(reasons) or "Nothing could be generated.")
-            self.store.save(result.board, result.svg)
+            svg_out = result.svg
+            if own_svg:
+                svg_out = own_svg
+                board.picture = Picture(
+                    kind="svg", title=pmeta["caption"], asset="assets/picture.svg",
+                    alt=pmeta["caption"], caption=pmeta["caption"],
+                )
+            self.store.save(result.board, svg_out)
             write_bundle(self.store, result.board.board_id)
             job.board_id = result.board.board_id
             job.warnings = [friendly_error(w) if len(w) > 120 else w for w in result.board.warnings]
@@ -485,6 +521,7 @@ class Studio:
                 for b in self.store.list()
             ],
             "trash": self.trashed(),
+            "pictures": self.library.list(),
             "job": latest.public() if latest else None,
         }
 
@@ -494,7 +531,7 @@ class Studio:
 _BOARD_ROUTE = re.compile(r"^/b/([a-z0-9][a-z0-9-]{0,79})\.(html|json|pdf)$")
 _CSP = (
     "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-    "connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; "
+    "connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; "
     "frame-ancestors 'none'"
 )
 
@@ -613,6 +650,18 @@ def make_studio_server(
             path = urlsplit(self.path).path
             if path == "/":
                 return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+            m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/chat", path)
+            if m:
+                return self._json(200, {"history": studio.editor.history(m.group(1))})
+            m = re.fullmatch(r"/api/pictures/([0-9a-f]{12})", path)
+            if m:
+                got = studio.library.raw(m.group(1))
+                if not got:
+                    return self._json(404, {"error": "No such picture."})
+                return self._send(
+                    200, got[0], got[1],
+                    {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"},
+                )
             if path == "/api/state":
                 return self._json(200, studio.state())
             m = re.fullmatch(r"/api/jobs/([0-9a-f]{10})", path)
@@ -689,8 +738,34 @@ def make_studio_server(
                         int(body.get("questions", 10) or 10),
                         bool(body.get("with_picture", True)),
                         str(body.get("focus", "")),
+                        str(body.get("picture_id", "")),
                     )
                     return self._json(200, {"job": job.public()})
+                if path == "/api/pictures":
+                    name = unquote(self.headers.get("X-Filename") or "picture")
+                    cap = unquote(self.headers.get("X-Caption") or "")
+                    return self._json(
+                        200, {"picture": studio.library.add(name, self._body(), cap)}
+                    )
+                m = re.fullmatch(r"/api/pictures/([0-9a-f]{12})/delete", path)
+                if m:
+                    studio.library.delete(m.group(1))
+                    return self._json(200, {"ok": True})
+                m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/chat", path)
+                if m:
+                    body = self._json_body()
+                    out = asyncio.run(studio.editor.send(m.group(1), str(body.get("message", ""))))
+                    if out["changed"]:
+                        write_bundle(studio.store, m.group(1))
+                    return self._json(200, {**out, "history": studio.editor.history(m.group(1))})
+                m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/undo", path)
+                if m:
+                    ok = studio.editor.undo(m.group(1))
+                    if ok:
+                        write_bundle(studio.store, m.group(1))
+                    return self._json(
+                        200, {"ok": ok, "history": studio.editor.history(m.group(1))}
+                    )
                 m = re.fullmatch(r"/api/boards/([a-z0-9][a-z0-9-]{0,79})/delete", path)
                 if m:
                     studio.trash_board(m.group(1))
@@ -703,7 +778,7 @@ def make_studio_server(
                     studio.store.mark_reviewed(m.group(1))
                     write_bundle(studio.store, m.group(1))
                     return self._json(200, {"ok": True})
-            except StudioError as exc:
+            except (StudioError, PictureError, EditError) as exc:
                 return self._json(400, {"error": str(exc)})
             except BoardNotFound:
                 return self._json(404, {"error": "No such board."})

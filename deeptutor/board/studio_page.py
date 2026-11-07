@@ -30,6 +30,11 @@ li:first-child{border-top:0}
 .pill{font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
 .pill.ok{color:var(--accent);border-color:var(--accent)}
 .hidden{display:none}
+.chatlog{max-height:300px;overflow:auto;margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.chatlog p{margin:0;padding:8px 10px;border-radius:10px;border:1px solid var(--line);max-width:92%}
+.chatlog p.tutor{align-self:flex-end;background:var(--bg)}
+.chatlog p.ai{align-self:flex-start;color:var(--ink)}
+textarea{width:100%}
 .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;width:40%;background:var(--accent);animation:slide 1.4s ease-in-out infinite alternate}
 @keyframes slide{from{margin-left:0}to{margin-left:60%}}
@@ -62,10 +67,20 @@ li:first-child{border-top:0}
  <p class="err" id="fileErr"></p>
  <ul id="docList"></ul></section>
 
+<section class="card" id="c2b"><h2><span class="num">+</span>Your pictures (optional)</h2>
+ <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it so the notes can refer to it. Pictures stay on this computer.</p>
+ <label for="picCap">What is it? (a short name)</label>
+ <input type="text" id="picCap" maxlength="300" placeholder="Example: Dumpy level on a tripod, parts labelled">
+ <div class="row"><input type="file" id="picFile" accept=".png,.jpg,.jpeg,.webp,.svg"><button type="button" id="picBtn">Add picture</button></div>
+ <p class="err" id="picErr"></p>
+ <ul id="picList"></ul></section>
+
 <section class="card" id="c3"><h2><span class="num">3</span>Build a board</h2>
  <label for="topicSel">Topic</label>
  <select id="topicSel"></select>
  <input type="text" id="topicCustom" class="hidden" maxlength="200" placeholder="Type the topic" style="margin-top:8px">
+ <label for="pickPic">Picture</label>
+ <select id="pickPic"></select>
  <label for="focus">Tell the AI where to focus (optional)</label>
  <textarea id="focus" maxlength="1000" rows="3" placeholder="Example: go deep on levelling readings, keep the wording simple for Level 2, add an extra example on reduced levels."></textarea>
  <label for="qn">Number of questions</label>
@@ -74,6 +89,13 @@ li:first-child{border-top:0}
  <div class="row"><button type="button" id="buildBtn">Build board</button></div>
  <p class="err" id="buildErr"></p>
  <div id="jobBox" class="hidden"><p id="jobText"></p><div class="bar" id="jobBar"><i></i></div><ul id="jobWarn" class="warn"></ul></div></section>
+
+<section class="card hidden" id="cEdit"><h2><span class="num">&#9998;</span><span id="editTitle">Edit the notes</span></h2>
+ <p class="hint" style="margin-top:0">Only you see this chat. Ask for a change, check it with <b>Open</b>, then press Approve. Students only ever see approved boards. Each change can be undone.</p>
+ <div id="chatLog" class="chatlog"></div>
+ <textarea id="chatIn" rows="2" maxlength="1500" placeholder="Example: Explain levelling more simply. Add a worked example with a backsight of 1.5 m. Add the other measuring instruments."></textarea>
+ <div class="row"><button type="button" id="chatSend">Send</button><button type="button" class="ghost" id="chatUndo">Undo last change</button><button type="button" class="ghost" id="chatClose">Close</button></div>
+ <p class="err" id="chatErr"></p></section>
 
 <section class="card" id="c4"><h2><span class="num">4</span>Your boards</h2>
  <p class="hint" style="margin-top:0">A new board is a draft. Read it against your guideline, then press Approve.</p>
@@ -107,6 +129,9 @@ function render(){
   var dl=$("docList");dl.textContent="";
   if(!S.docs.length){var li=el("li");li.appendChild(el("span","No files yet.","hint"));dl.appendChild(li)}
   S.docs.forEach(function(d){var li=el("li");li.appendChild(el("span",d.name));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/docs/"+d.id+"/delete").then(load).catch(function(e){$("fileErr").textContent=e.message})};li.appendChild(b);dl.appendChild(li)});
+  var pl=$("picList");pl.textContent="";var ps=$("pickPic");ps.textContent="";opt(ps,"","Let Vboard draw one (exact templates first)");
+  (S.pictures||[]).forEach(function(p){var li=el("li");li.appendChild(el("span",p.caption));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/pictures/"+p.id+"/delete").then(load).catch(function(e){$("picErr").textContent=e.message})};li.appendChild(b);pl.appendChild(li);opt(ps,p.id,"Use my picture: "+p.caption)});
+  if(!(S.pictures||[]).length){var e0=el("li");e0.appendChild(el("span","No pictures yet.","hint"));pl.appendChild(e0)}
   var ts=$("topicSel"),keep=ts.value;ts.textContent="";
   S.topics.forEach(function(t){opt(ts,t.name,"Topic "+t.number+": "+t.name+(t.weight?" ("+t.weight+"%)":""))});
   opt(ts,"__custom__","Type my own topic...");
@@ -120,6 +145,7 @@ function render(){
     function link(t,h,dl){var a=el("a",t,"btn ghost");a.href=h;if(dl)a.download=dl;else a.target="_blank";a.rel="noopener";r.appendChild(a)}
     link("Open","/b/"+b.id+".html");link("PDF","/b/"+b.id+".pdf",b.id+".pdf");link("Phone file","/b/"+b.id+".html",b.id+".html");
     if(b.status!=="reviewed"){var ap=el("button","Approve");ap.type="button";ap.onclick=function(){post("/api/boards/"+b.id+"/approve").then(load).catch(function(e){$("buildErr").textContent=e.message})};r.appendChild(ap)}
+    var ed=el("button","Edit","ghost");ed.type="button";ed.onclick=function(){openEdit(b)};r.appendChild(ed);
     var dl=el("button","Delete","ghost");dl.type="button";dl.onclick=function(){if(confirm("Delete the board "+b.topic+"? It moves to Trash and you can restore it."))post("/api/boards/"+b.id+"/delete").then(load).catch(function(e){$("buildErr").textContent=e.message})};r.appendChild(dl);
     li.appendChild(r);bl.appendChild(li)});
   var tl=$("trashList");tl.textContent="";$("trashBox").classList.toggle("hidden",!(S.trash||[]).length);
@@ -147,7 +173,17 @@ $("uploadBtn").onclick=function(){$("fileErr").textContent="";var f=$("file").fi
 $("topicSel").onchange=function(){$("topicCustom").classList.toggle("hidden",$("topicSel").value!=="__custom__")};
 $("buildBtn").onclick=function(){$("buildErr").textContent="";
   var topic=$("topicSel").value==="__custom__"?$("topicCustom").value:$("topicSel").value;
-  post("/api/build",{topic:topic,questions:parseInt($("qn").value,10)||10,with_picture:$("pic").checked,focus:$("focus").value}).then(function(d){S.job=d.job;job(d.job)}).catch(function(e){$("buildErr").textContent=e.message})};
+  post("/api/build",{topic:topic,questions:parseInt($("qn").value,10)||10,with_picture:$("pic").checked,focus:$("focus").value,picture_id:$("pickPic").value}).then(function(d){S.job=d.job;job(d.job)}).catch(function(e){$("buildErr").textContent=e.message})};
+$("picBtn").onclick=function(){$("picErr").textContent="";var f=$("picFile").files[0];if(!f){$("picErr").textContent="Choose a picture first.";return}
+  api("POST","/api/pictures",f,{"X-Filename":encodeURIComponent(f.name),"X-Caption":encodeURIComponent($("picCap").value),"Content-Type":"application/octet-stream"}).then(function(){$("picFile").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message})};
+var editId=null;
+function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
+function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";
+  api("GET","/api/boards/"+b.id+"/chat").then(function(d){showChat(d.history)});$("cEdit").scrollIntoView({behavior:"smooth"})}
+$("chatClose").onclick=function(){$("cEdit").classList.add("hidden");editId=null};
+$("chatSend").onclick=function(){var m=$("chatIn").value.trim();if(!m||!editId)return;$("chatErr").textContent="";$("chatSend").disabled=true;$("chatSend").textContent="Working...";
+  post("/api/boards/"+editId+"/chat",{message:m}).then(function(d){$("chatIn").value="";showChat(d.history);return load()}).catch(function(e){$("chatErr").textContent=e.message}).then(function(){$("chatSend").disabled=false;$("chatSend").textContent="Send"})};
+$("chatUndo").onclick=function(){if(!editId)return;post("/api/boards/"+editId+"/undo").then(function(d){showChat(d.history);if(!d.ok)$("chatErr").textContent="Nothing to undo.";return load()}).catch(function(e){$("chatErr").textContent=e.message})};
 load();
 })();
 </script></body></html>

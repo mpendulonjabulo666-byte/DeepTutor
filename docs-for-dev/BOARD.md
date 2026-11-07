@@ -45,6 +45,13 @@ your files. **Delete** on a board moves it to Trash (inside
 `data/user/board_studio/trash/`), and **Restore** brings it back. Nothing is
 erased by the button.
 
+## Your pictures, the editing chat and exact diagrams
+
+- **Your pictures:** add PNG, JPG, WEBP or SVG files (3 MB each) under *Your pictures*. Choose one when building and it becomes the board's picture, unchanged; the AI is told its name so the notes can refer to it. The picture file is not sent to the model.
+- **Editing chat:** **Edit** on a board opens a private chat. Ask for changes to the notes ("explain it more simply", "add a worked example"). Each change saves the previous notes, **Undo last change** restores them, and an edited board becomes a draft again until you press Approve. The chat is stored in the board folder under `_tutor/` and is never part of `board.json` or the phone page.
+- **Exact diagrams:** `deeptutor/board/diagrams/` draws diagrams with code (levelling, simply supported beam, weld joints, series circuit). The AI only picks a template and fills numbers; the code computes the answers, draws to scale and refuses overlapping labels. If no template fits, the AI draws an SVG as before. Templates are marked for review by a teacher of the course. To add one, write a draw function in `templates.py` and register it with the programmes it serves.
+- **Big screens:** at 1200 px and wider the picture stays on the left while the notes scroll on the right; labels in the picture light up when the notes mention them.
+
 ## Upload from your phone (Vboard)
 
 ```powershell

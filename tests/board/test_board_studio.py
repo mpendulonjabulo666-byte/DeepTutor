@@ -400,3 +400,52 @@ def test_focus_reaches_every_prompt_and_trash_restores(tmp_path):
     assert not d.exists() and studio.trashed()[0]["id"] == "demo-board"
     assert studio.restore_board(studio.trashed()[0]["key"]) == "demo-board"
     assert (d / "board.json").exists() and studio.trashed() == []
+
+
+def test_pictures_and_editing_chat(tmp_path):
+    import asyncio
+    import json
+    import struct
+    import zlib
+
+    from deeptutor.board.pictures import PictureError
+    from deeptutor.board.schema import Board, NoteSection, Notes
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio
+
+    def png():
+        raw = b"\x00\xff\x00\x00"
+        def chunk(t, d):
+            c = struct.pack(">I", len(d)) + t + d
+            return c + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+        return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+                + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+    async def llm(prompt, system):
+        notes = {"summary": "s", "sections": [{"heading": "Simple", "points": ["Easy words."]}],
+                 "formulas": [], "key_terms": []}
+        return json.dumps({"reply": "Made it simpler.", "notes": notes})
+
+    store = BoardStore(tmp_path / "b")
+    board = Board(board_id="demo-board", subject="S", topic="T",
+                  notes=Notes(sections=[NoteSection(heading="Hard", points=["Complex."])]))
+    store.save(board)
+    store.mark_reviewed("demo-board")
+    st = Studio(store, tmp_path / "s", chat_llm=llm)
+
+    pic = st.library.add("Level.PNG", png(), "Dumpy level")
+    svg, meta = st.library.svg_for(pic["id"])
+    assert "data:image/png;base64," in svg and meta["caption"] == "Dumpy level"
+    for bad in (b"not a picture", b"<html><script>x</script></html>"):
+        try:
+            st.library.add("x.png", bad)
+            raise AssertionError("accepted")
+        except PictureError:
+            pass
+
+    out = asyncio.run(st.editor.send("demo-board", "make it simpler"))
+    assert out["changed"] and store.load("demo-board").notes.sections[0].heading == "Simple"
+    assert store.load("demo-board").review.status == "draft"  # edits need a new approval
+    assert st.editor.undo("demo-board")
+    assert store.load("demo-board").notes.sections[0].heading == "Hard"
+    assert "_tutor" not in json.dumps(store.load("demo-board").model_dump())  # students never get the chat
