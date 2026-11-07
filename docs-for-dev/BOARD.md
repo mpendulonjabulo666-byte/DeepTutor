@@ -102,15 +102,28 @@ first. If a section fails to generate, the board is still saved with a warning.
 The PDF includes the diagram only when `svglib` is installed
 (`python -m pip install svglib`); otherwise it points to the phone page.
 
-## Look
+## Look (Vboard v2 student page)
 
-The phone page uses the Vex design: one dark page with Picture, Notes,
-Practice and Progress cards, and tabs that jump to each card. The animated Vex
-"V" logo and the Barlow fonts are embedded from `deeptutor/board/brand.json`
-(fonts under the SIL OFL, see `deeptutor/board/FONT_LICENSE.md`), so the page
-still makes no network request. Animations pause when the page is hidden, and
-stop for people who ask their phone for less motion or switch them off in
-Settings. This is branding only; the board is not connected to Vex.
+One page, notes first. The top card answers four questions at a glance: what
+the topic is, how many sections are done, how many weak spots there are, and a
+**Continue** button that goes to the next section. The four tabs (Picture,
+Notes, Practice, Progress) are jump links on that page.
+
+Each notes section shows the part of the picture it talks about (matching
+labels lit), its points, an *Explain it to me* link and one check question. A
+wrong answer opens a plain explanation, a local example, the common mistake and
+a fresh question. The section-to-question match is worked out when the page is
+written (`plan_layout` in `bundle.py`, by shared words) because board JSON v1
+does not store it; sections without a good match get an "I have read this"
+button. Questions not used as checks form the topic test.
+
+On a tablet the picture stays beside the notes; on a laptop the picture, the
+notes and the current check question sit side by side. **Aa** opens settings:
+text size, dark, light or high-contrast colours, reduce motion, simple words
+first, read aloud (the phone's own voice) and a progress file for phones that
+do not keep progress. The V logo is shown still and the Barlow fonts are
+embedded (SIL OFL, see `deeptutor/board/FONT_LICENSE.md`), so the page makes no
+network request.
 
 ## Board JSON (schema version 1)
 

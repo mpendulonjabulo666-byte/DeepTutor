@@ -490,6 +490,7 @@ def test_picture_description_guides_the_build(tmp_path):
     pic = st.library.add("a.svg", svg, "Levelling")
     job = Job(id="j", topic="T")
     assert st._picture_parts(pic["id"], job) == "Backsight; Foresight"  # SVG read locally, no network
-    st.library.add("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "Photo")
-    pid = [p for p in st.library.list() if p["kind"] == "png"][0]["id"]
-    assert st._picture_parts(pid, job) == "Staff: 1.5 m reading" and seen["mime"] == "image/png"
+    off = st.library.add("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "Photo")
+    assert st._picture_parts(off["id"], job) == "" and "mime" not in seen  # not sent unless ticked
+    on = st.library.add("q.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "Photo", ai_read=True)
+    assert st._picture_parts(on["id"], job) == "Staff: 1.5 m reading" and seen["mime"] == "image/png"

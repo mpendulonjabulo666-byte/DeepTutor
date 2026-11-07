@@ -764,8 +764,9 @@ def make_studio_server(
                 if path == "/api/pictures":
                     name = unquote(self.headers.get("X-Filename") or "picture")
                     cap = unquote(self.headers.get("X-Caption") or "")
+                    ai = (self.headers.get("X-AI-Read") or "") == "1"
                     return self._json(
-                        200, {"picture": studio.library.add(name, self._body(), cap)}
+                        200, {"picture": studio.library.add(name, self._body(), cap, ai)}
                     )
                 m = re.fullmatch(r"/api/pictures/([0-9a-f]{12})/delete", path)
                 if m:

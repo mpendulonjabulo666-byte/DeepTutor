@@ -80,7 +80,9 @@ class PictureLibrary:
             return []
         return [d for d in data if isinstance(d, dict) and (self.dir / d.get("file", "")).is_file()]
 
-    def add(self, filename: str, data: bytes, caption: str = "") -> dict[str, Any]:
+    def add(
+        self, filename: str, data: bytes, caption: str = "", ai_read: bool = False
+    ) -> dict[str, Any]:
         if not data or len(data) > MAX_PICTURE_BYTES:
             raise PictureError("That picture is empty or bigger than 3 MB.")
         kind = sniff(data)
@@ -99,6 +101,7 @@ class PictureLibrary:
             "kind": kind,
             "name": name,
             "caption": " ".join(caption.split())[:300] or Path(name).stem.replace("-", " ")[:300],
+            "ai_read": bool(ai_read),
         }
         self._index.write_text(json.dumps([*items, meta], indent=2), encoding="utf-8")
         return meta
@@ -119,6 +122,8 @@ class PictureLibrary:
         if not meta:
             return "", None, ""
         data = (self.dir / meta["file"]).read_bytes()
+        if meta["kind"] != "svg" and not meta.get("ai_read"):
+            return meta["kind"], None, ""  # the tutor did not allow the AI to read it
         if meta["kind"] == "svg":
             labels = re.findall(r"<text[^>]*>([^<]{1,80})</text>", data.decode("utf-8", "replace"))
             return "svg", None, "; ".join(dict.fromkeys(x.strip() for x in labels if x.strip()))[:600]

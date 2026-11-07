@@ -68,9 +68,10 @@ textarea{width:100%}
  <ul id="docList"></ul></section>
 
 <section class="card" id="c2b"><h2><span class="num">+</span>Your pictures (optional)</h2>
- <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it. A photo or PNG/JPG/WEBP is also sent to Google (Gemini) once so the AI can read what is labelled in it; an SVG is read on this computer only. Pictures are kept on this computer.</p>
+ <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it. If you tick the box, a PNG, JPG or WEBP is also sent to Google (Gemini) once so the AI can read what is labelled in it; an SVG's labels are read on this computer only. Pictures are kept on this computer.</p>
  <label for="picCap">What is it? (a short name)</label>
  <input type="text" id="picCap" maxlength="300" placeholder="Example: Dumpy level on a tripod, parts labelled">
+ <label class="row" style="gap:8px;font-weight:400"><input type="checkbox" id="picAi" style="width:22px;height:22px"> Let the AI read this picture (it is sent to Google once). Leave it off for photos of people or private documents.</label>
  <div class="row"><input type="file" id="picFile" accept=".png,.jpg,.jpeg,.webp,.svg"><button type="button" id="picBtn">Add picture</button></div>
  <p class="err" id="picErr"></p>
  <ul id="picList"></ul></section>
@@ -130,7 +131,7 @@ function render(){
   if(!S.docs.length){var li=el("li");li.appendChild(el("span","No files yet.","hint"));dl.appendChild(li)}
   S.docs.forEach(function(d){var li=el("li");li.appendChild(el("span",d.name));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/docs/"+d.id+"/delete").then(load).catch(function(e){$("fileErr").textContent=e.message})};li.appendChild(b);dl.appendChild(li)});
   var pl=$("picList");pl.textContent="";var ps=$("pickPic");ps.textContent="";opt(ps,"","Let Vboard draw one (exact templates first)");
-  (S.pictures||[]).forEach(function(p){var li=el("li");li.appendChild(el("span",p.caption));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/pictures/"+p.id+"/delete").then(load).catch(function(e){$("picErr").textContent=e.message})};li.appendChild(b);pl.appendChild(li);opt(ps,p.id,"Use my picture: "+p.caption)});
+  (S.pictures||[]).forEach(function(p){var li=el("li");li.appendChild(el("span",p.caption+(p.kind!=="svg"?(p.ai_read?" (AI may read it)":" (AI does not read it)"):"")));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/pictures/"+p.id+"/delete").then(load).catch(function(e){$("picErr").textContent=e.message})};li.appendChild(b);pl.appendChild(li);opt(ps,p.id,"Use my picture: "+p.caption)});
   if(!(S.pictures||[]).length){var e0=el("li");e0.appendChild(el("span","No pictures yet.","hint"));pl.appendChild(e0)}
   var ts=$("topicSel"),keep=ts.value;ts.textContent="";
   S.topics.forEach(function(t){opt(ts,t.name,"Topic "+t.number+": "+t.name+(t.weight?" ("+t.weight+"%)":""))});
@@ -175,7 +176,7 @@ $("buildBtn").onclick=function(){$("buildErr").textContent="";
   var topic=$("topicSel").value==="__custom__"?$("topicCustom").value:$("topicSel").value;
   post("/api/build",{topic:topic,questions:parseInt($("qn").value,10)||10,with_picture:$("pic").checked,focus:$("focus").value,picture_id:$("pickPic").value}).then(function(d){S.job=d.job;job(d.job)}).catch(function(e){$("buildErr").textContent=e.message})};
 $("picBtn").onclick=function(){$("picErr").textContent="";var f=$("picFile").files[0];if(!f){$("picErr").textContent="Choose a picture first.";return}
-  api("POST","/api/pictures",f,{"X-Filename":encodeURIComponent(f.name),"X-Caption":encodeURIComponent($("picCap").value),"Content-Type":"application/octet-stream"}).then(function(){$("picFile").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message})};
+  api("POST","/api/pictures",f,{"X-Filename":encodeURIComponent(f.name),"X-Caption":encodeURIComponent($("picCap").value),"X-AI-Read":$("picAi").checked?"1":"0","Content-Type":"application/octet-stream"}).then(function(){$("picFile").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message})};
 var editId=null;
 function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
 function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes and questions: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";
