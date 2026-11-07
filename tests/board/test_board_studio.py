@@ -449,3 +449,47 @@ def test_pictures_and_editing_chat(tmp_path):
     assert st.editor.undo("demo-board")
     assert store.load("demo-board").notes.sections[0].heading == "Hard"
     assert "_tutor" not in json.dumps(store.load("demo-board").model_dump())  # students never get the chat
+
+
+def test_chat_edits_practice_and_undo_restores_both(tmp_path):
+    import asyncio
+    import json
+
+    from deeptutor.board.schema import Board, NoteSection, Notes, Practice, Question
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio
+
+    def q(text):
+        return Question(id="q1", type="short_answer", question=text, answer="Because.", marks=2)
+
+    async def llm(prompt, system):
+        assert "CURRENT PRACTICE JSON" in prompt
+        new = Practice(questions=[q("Easier question?")]).model_dump(mode="json")
+        return json.dumps({"reply": "Made question 1 easier.", "notes": None, "practice": new})
+
+    store = BoardStore(tmp_path / "b")
+    store.save(Board(board_id="demo-board", subject="S", topic="T",
+                     notes=Notes(sections=[NoteSection(heading="H", points=["p"])]),
+                     practice=Practice(questions=[q("Hard question?")])))
+    st = Studio(store, tmp_path / "s", chat_llm=llm)
+    out = asyncio.run(st.editor.send("demo-board", "make question 1 easier"))
+    b = store.load("demo-board")
+    assert out["changed"] and b.practice.questions[0].question == "Easier question?"
+    assert b.notes.sections[0].heading == "H"  # untouched part stays
+    assert st.editor.undo("demo-board")
+    assert store.load("demo-board").practice.questions[0].question == "Hard question?"
+
+
+def test_picture_description_guides_the_build(tmp_path):
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Job, Studio
+
+    seen = {}
+    st = Studio(BoardStore(tmp_path / "b"), tmp_path / "s", describe=lambda raw, mime: seen.setdefault("mime", mime) and "Staff: 1.5 m reading")
+    svg = b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><text x='1' y='2'>Backsight</text><text x='1' y='5'>Foresight</text></svg>"
+    pic = st.library.add("a.svg", svg, "Levelling")
+    job = Job(id="j", topic="T")
+    assert st._picture_parts(pic["id"], job) == "Backsight; Foresight"  # SVG read locally, no network
+    st.library.add("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "Photo")
+    pid = [p for p in st.library.list() if p["kind"] == "png"][0]["id"]
+    assert st._picture_parts(pid, job) == "Staff: 1.5 m reading" and seen["mime"] == "image/png"

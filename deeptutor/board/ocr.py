@@ -57,7 +57,14 @@ def _split(data: bytes) -> list[bytes]:
     return parts
 
 
-def _call(model: str, key: str, pdf: bytes, post: Callable[..., Any]) -> str:
+def _call(
+    model: str,
+    key: str,
+    pdf: bytes,
+    post: Callable[..., Any],
+    prompt: str = _PROMPT,
+    mime: str = "application/pdf",
+) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {
         "contents": [
@@ -65,11 +72,11 @@ def _call(model: str, key: str, pdf: bytes, post: Callable[..., Any]) -> str:
                 "parts": [
                     {
                         "inline_data": {
-                            "mime_type": "application/pdf",
+                            "mime_type": mime,
                             "data": base64.b64encode(pdf).decode(),
                         }
                     },
-                    {"text": _PROMPT},
+                    {"text": prompt},
                 ]
             }
         ],
@@ -101,3 +108,18 @@ def ocr_pdf_with_gemini(data: bytes, post: Callable[..., Any] | None = None) -> 
     model, key = _gemini_settings()
     send = post or httpx.post
     return "\n\n".join(_call(model, key, part, send) for part in _split(data))
+
+
+_PICTURE_PROMPT = (
+    "This is a teaching picture chosen by a tutor. List the parts, labels and numbers you can "
+    "actually see, as a short plain list (name: what it shows). Do not guess what is not visible. "
+    "No introduction, no more than 120 words."
+)
+
+
+def describe_picture_with_gemini(data: bytes, mime: str, post: Callable[..., Any] | None = None) -> str:
+    """Return a short list of what a picture shows, or raise OcrUnavailable."""
+    import httpx
+
+    model, key = _gemini_settings()
+    return _call(model, key, data, post or httpx.post, _PICTURE_PROMPT, mime).strip()[:900]

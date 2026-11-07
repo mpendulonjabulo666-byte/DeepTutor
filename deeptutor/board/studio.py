@@ -256,6 +256,7 @@ class Studio:
         builder_factory: BuilderFactory | None = None,
         ocr: Callable[[bytes], str] | None = None,
         chat_llm: Callable[..., Any] | None = None,
+        describe: Callable[[bytes, str], str] | None = None,
     ) -> None:
         self.store = store
         self.folder = Path(folder)
@@ -265,8 +266,24 @@ class Studio:
         self._jobs: dict[str, Job] = {}
         self._builder_factory = builder_factory or self._default_builder
         self._ocr = ocr
+        self._describe = describe
         self.library = PictureLibrary(self.folder / "pictures")
         self.editor = BoardEditor(store, chat_llm)
+
+    def _picture_parts(self, picture_id: str, job: Job) -> str:
+        """What the chosen picture shows. A photo is read by Gemini (sent to Google); SVG is read here."""
+        kind, raster, local = self.library.describe_inputs(picture_id)
+        if local or raster is None:
+            return local
+        try:
+            if self._describe:
+                return self._describe(raster, "image/" + kind)
+            from .ocr import describe_picture_with_gemini
+
+            return describe_picture_with_gemini(raster, "image/" + kind)
+        except Exception as exc:  # the board is still built, from the caption alone
+            job.warnings.append(f"The picture could not be read by the AI ({exc}); the caption was used.")
+            return ""
 
     @staticmethod
     def _default_builder(context):
@@ -407,6 +424,9 @@ class Studio:
                 "Refer to it where it helps."
             )
             with_picture = False
+            seen = self._picture_parts(picture_id, job)
+            if seen:
+                focus += f" Parts of that picture: {seen}."
 
         section = topic_section(texts, job.topic)
 

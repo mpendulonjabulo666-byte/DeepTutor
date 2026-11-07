@@ -240,6 +240,9 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
  .study .frame svg{max-height:58vh}
  .study #s-notes{margin-bottom:18px}
 }
+.peek{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:30;min-height:46px;padding:8px 16px;border-radius:99px;border:1px solid var(--or);background:#16161a;color:#fff;font:inherit;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+@media (min-width:1200px){.peek{display:none!important}}
+@media print{.peek{display:none!important}}
 .nsec{transition:background .25s,border-color .25s;border-left:3px solid transparent;padding-left:10px;margin-left:-13px}
 .nsec.cur{border-left-color:var(--or);background:rgba(255,122,24,.06)}
 /* ---------- tablet / phone ---------- */
@@ -363,6 +366,7 @@ details.pf summary{cursor:pointer;font:600 16px var(--ui);color:#d0d0d8;min-heig
   <button class="tab" role="tab" type="button" data-t="s-progress" aria-selected="false"><svg class="ic" viewBox="0 0 24 24"><path d="M5 20V12M10 20V5M15 20v-6M20 20V9"/></svg>Progress</button>
  </div>
 
+ <button type="button" class="peek" id="peek" hidden>See the picture</button>
  <div class="study">
  <section class="card sec" id="s-picture" aria-labelledby="picLab">
   <p class="lab" id="picLab"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Picture</p>
@@ -479,13 +483,13 @@ if("IntersectionObserver" in window){
 }
 
 /* ---- picture ---- */
-var PICSVG=null;
+var PICSVG=null,OPENPIC=null;
 (function(){var holder=$("picture-svg"),svg=holder.querySelector("svg"),frame=$("frame");
  $("picTitle").textContent=(B.picture&&B.picture.title)||"Diagram";
  $("cap").textContent=(B.picture&&B.picture.caption)||"";
  if(!svg){frame.removeAttribute("role");frame.removeAttribute("tabindex");frame.style.cursor="default";frame.style.background="#0c0c11";frame.appendChild(el("p",{class:"empty",text:"No picture for this topic. Read the notes instead."}));}
  else{PICSVG=svg;svg.setAttribute("role","img");svg.setAttribute("aria-label",(B.picture&&(B.picture.alt||B.picture.title))||"Diagram");frame.appendChild(svg);frame.appendChild(el("span",{class:"hint",text:"Tap to enlarge"}));
-  function zoom(){var z=$("zbox");clear(z);z.appendChild(svg.cloneNode(true));openSheet("zoom")}
+  function zoom(){var z=$("zbox");clear(z);z.appendChild(svg.cloneNode(true));openSheet("zoom")}OPENPIC=zoom;
   frame.addEventListener("click",zoom);frame.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();zoom()}});$("zbox").addEventListener("click",closeSheets)}
  holder.remove();
  var kt=(B.notes&&B.notes.key_terms)||[],ul=$("parts"),items=[],seen={};
@@ -526,8 +530,14 @@ var nb=B.notes||{};
   texts.forEach(function(o){var on=(" "+body+" ").replace(/[^a-z0-9 ]/g," ").indexOf(" "+o.t+" ")>-1;
    if(on){o.n.setAttribute("fill","#d9480f");o.n.setAttribute("font-weight","700")}
    else{if(o.fill===null)o.n.removeAttribute("fill");else o.n.setAttribute("fill",o.fill);if(o.w===null)o.n.removeAttribute("font-weight");else o.n.setAttribute("font-weight",o.w)}})}
- var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&window.matchMedia("(min-width:1200px)").matches)show(e.target)})},{rootMargin:"-30% 0px -55% 0px"});
+ var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)show(e.target)})},{rootMargin:"-30% 0px -55% 0px"});
  secs.forEach(function(x){io.observe(x)});
+})();
+/* ---- phone: a button shows the picture with the part being read lit ---- */
+(function(){
+ var b=$("peek"),n=$("s-notes");if(!b||!n||!OPENPIC||!("IntersectionObserver" in window))return;
+ b.addEventListener("click",function(){OPENPIC()});
+ new IntersectionObserver(function(es){b.hidden=!es[0].isIntersecting},{threshold:0.05}).observe(n);
 })();
 $("explainBtn").addEventListener("click",function(){var d=document.querySelector("details.xd");if(d){d.open=true;go("explainers",d)}else go("s-notes")});
 

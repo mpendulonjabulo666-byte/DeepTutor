@@ -68,7 +68,7 @@ textarea{width:100%}
  <ul id="docList"></ul></section>
 
 <section class="card" id="c2b"><h2><span class="num">+</span>Your pictures (optional)</h2>
- <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it so the notes can refer to it. Pictures stay on this computer.</p>
+ <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it. A photo or PNG/JPG/WEBP is also sent to Google (Gemini) once so the AI can read what is labelled in it; an SVG is read on this computer only. Pictures are kept on this computer.</p>
  <label for="picCap">What is it? (a short name)</label>
  <input type="text" id="picCap" maxlength="300" placeholder="Example: Dumpy level on a tripod, parts labelled">
  <div class="row"><input type="file" id="picFile" accept=".png,.jpg,.jpeg,.webp,.svg"><button type="button" id="picBtn">Add picture</button></div>
@@ -90,10 +90,10 @@ textarea{width:100%}
  <p class="err" id="buildErr"></p>
  <div id="jobBox" class="hidden"><p id="jobText"></p><div class="bar" id="jobBar"><i></i></div><ul id="jobWarn" class="warn"></ul></div></section>
 
-<section class="card hidden" id="cEdit"><h2><span class="num">&#9998;</span><span id="editTitle">Edit the notes</span></h2>
- <p class="hint" style="margin-top:0">Only you see this chat. Ask for a change, check it with <b>Open</b>, then press Approve. Students only ever see approved boards. Each change can be undone.</p>
+<section class="card hidden" id="cEdit"><h2><span class="num">&#9998;</span><span id="editTitle">Edit the notes and questions</span></h2>
+ <p class="hint" style="margin-top:0">Only you see this chat. Ask for a change to the notes or the practice questions, check it with <b>Open</b>, then press Approve. Students only ever see approved boards. Each change can be undone.</p>
  <div id="chatLog" class="chatlog"></div>
- <textarea id="chatIn" rows="2" maxlength="1500" placeholder="Example: Explain levelling more simply. Add a worked example with a backsight of 1.5 m. Add the other measuring instruments."></textarea>
+ <textarea id="chatIn" rows="2" maxlength="1500" placeholder="Example: Explain levelling more simply. Add a worked example with a backsight of 1.5 m. Add the other measuring instruments. Make question 3 easier."></textarea>
  <div class="row"><button type="button" id="chatSend">Send</button><button type="button" class="ghost" id="chatUndo">Undo last change</button><button type="button" class="ghost" id="chatClose">Close</button></div>
  <p class="err" id="chatErr"></p></section>
 
@@ -178,7 +178,7 @@ $("picBtn").onclick=function(){$("picErr").textContent="";var f=$("picFile").fil
   api("POST","/api/pictures",f,{"X-Filename":encodeURIComponent(f.name),"X-Caption":encodeURIComponent($("picCap").value),"Content-Type":"application/octet-stream"}).then(function(){$("picFile").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message})};
 var editId=null;
 function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
-function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";
+function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes and questions: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";
   api("GET","/api/boards/"+b.id+"/chat").then(function(d){showChat(d.history)});$("cEdit").scrollIntoView({behavior:"smooth"})}
 $("chatClose").onclick=function(){$("cEdit").classList.add("hidden");editId=null};
 $("chatSend").onclick=function(){var m=$("chatIn").value.trim();if(!m||!editId)return;$("chatErr").textContent="";$("chatSend").disabled=true;$("chatSend").textContent="Working...";

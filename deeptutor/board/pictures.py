@@ -113,6 +113,17 @@ class PictureLibrary:
         data = (self.dir / meta["file"]).read_bytes()
         return wrap_as_svg(data, meta["kind"], meta["caption"]), meta
 
+    def describe_inputs(self, pid: str) -> tuple[str, bytes | None, str]:
+        """(kind, raster bytes or None, local text). SVG labels are read here, no network."""
+        meta = self.get(pid)
+        if not meta:
+            return "", None, ""
+        data = (self.dir / meta["file"]).read_bytes()
+        if meta["kind"] == "svg":
+            labels = re.findall(r"<text[^>]*>([^<]{1,80})</text>", data.decode("utf-8", "replace"))
+            return "svg", None, "; ".join(dict.fromkeys(x.strip() for x in labels if x.strip()))[:600]
+        return meta["kind"], data, ""
+
     def delete(self, pid: str) -> None:
         meta = self.get(pid)
         if not meta:
