@@ -120,7 +120,7 @@ The PDF includes the diagram only when `svglib` is installed
 One page, notes first. The top card answers four questions at a glance: what
 the topic is, how many sections are done, how many weak spots there are, and a
 **Continue** button that goes to the next section. The four tabs (Picture,
-Notes, Practice, Progress) are jump links on that page.
+Notes, Practice, Progress) sit in a floating bar at the bottom of the screen (blurred glass where the phone supports it, solid otherwise) and jump within the page; the bar also opens Settings.
 
 Each notes section shows the part of the picture it talks about (matching
 labels lit), its points, an *Explain it to me* link and one check question. A
