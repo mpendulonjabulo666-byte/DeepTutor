@@ -48,3 +48,28 @@ def test_page_answers_the_first_glance_questions_and_has_accessibility_settings(
         assert marker in page, marker
     assert "<animate" not in page  # the logo is shown still
     assert "Search topics" not in page and "Home" not in page  # no left menu, no search
+
+
+def test_only_formulas_found_in_the_files_are_kept():
+    from deeptutor.board.builder import formula_in_source
+
+    src = "Height of instrument: HI = RL + BS. Reduced level: RL = HI - FS. Area A = l x b"
+    assert formula_in_source(r"\mathrm{HI} = \mathrm{RL} + \mathrm{BS}", src)
+    assert formula_in_source(r"A = l \times b", src)
+    assert not formula_in_source(r"V = l \times b \times h", src)  # not in the files
+    assert not formula_in_source(r"\mathrm{HC} = 2x", src)
+
+
+def test_formulas_become_safe_mathml():
+    from deeptutor.board.bundle import latex_to_mathml
+
+    out = latex_to_mathml(r"\mathrm{RL}_B = \mathrm{HI} - \mathrm{FS}")
+    assert out.startswith("<math") and "<msub>" in out
+    hostile = latex_to_mathml(r"x </math><script>alert(1)</script>")
+    assert "<script" not in hostile
+
+
+def test_navigation_is_a_bottom_dock_not_a_top_bar():
+    page = render_bundle(_board(), "")
+    assert '<nav class="dock"' in page and 'class="tabs"' not in page
+    assert "backdrop-filter" in page and "prefers-reduced-transparency" in page

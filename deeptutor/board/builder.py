@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import logging
+import re
 from typing import Any, Awaitable, Callable
 
 from pydantic import ValidationError
@@ -56,12 +57,48 @@ _STYLE = (
     "Reply with one JSON object and nothing else."
 )
 
+_CMD_WORD = re.compile(r"\\(?:mathrm|text|textrm|operatorname)\{([^{}]*)\}")
+
+
+def _compact(text: str) -> str:
+    text = text.replace("\\times", "x").replace("\\cdot", "x").replace("×", "x").replace("·", "x")
+    text = text.replace("−", "-").replace("\\left", "").replace("\\right", "")
+    text = re.sub(r"\\frac\{([^{}]*)\}\{([^{}]*)\}", r"\1/\2", text)
+    text = re.sub(r"\\[a-zA-Z]+", "", text)
+    return re.sub(r"[\s{}_^*]", "", text).lower()
+
+
+def formula_in_source(latex: str, source: str) -> bool:
+    """True when a formula can be traced to the uploaded files.
+
+    Symbols of two or more letters (HI, RL, FS) must all appear in the source as
+    written. A formula made only of single letters must appear in the source in
+    the same compact form (``A=lxb``), because single letters prove nothing alone.
+    """
+    words = [w for grp in _CMD_WORD.findall(latex) for w in re.findall(r"[A-Za-z]{2,}", grp)]
+    plain = _CMD_WORD.sub(" ", latex)
+    plain = re.sub(r"\\[a-zA-Z]+", " ", plain)
+    words += re.findall(r"(?<![A-Za-z])[A-Za-z]{2,}(?![A-Za-z])", plain)
+    if words:
+        return all(re.search(rf"(?<![A-Za-z]){re.escape(w)}(?![A-Za-z])", source) for w in words)
+    return bool(_compact(latex)) and _compact(latex) in _compact(source)
+
+
 NOTES_SYSTEM = (
     "You write exam-ready study notes.\n" + _STYLE + "\n\n"
     "JSON keys:\n"
     '- "summary": 2 to 3 sentences.\n'
-    '- "sections": 4 to 6 items of {"heading": str, "points": [3 to 6 short strings]}.\n'
-    '- "formulas": items of {"name": str, "latex": str, "explanation": str}. Real formulas only. Empty list if none.\n'
+    '- "sections": 3 to 10 items of {"heading": str, "points": [3 to 8 short strings]}. '
+    "Cover EVERY subtopic and outcome the SOURCE lists for this topic, in the order the guideline "
+    "gives them, with headings in the guideline's own words. Nothing in the syllabus is left out. "
+    "Write points the way a memo answer is written: one fact per point, so a student can write it "
+    "straight into an exam answer. When the source lists items (instruments, materials, steps, "
+    "types), give the complete list, every item the source names, with one plain line each, so a "
+    "question such as 'list five' can always be answered.\n"
+    '- "formulas": items of {"name": str, "latex": str, "explanation": str}. Copy each formula '
+    "exactly as the SOURCE writes it (same letters, symbols and units, as used in the exam papers "
+    "and formula sheets). Write a symbol of several letters as \\mathrm{HI}. Never make up or "
+    "rewrite a formula. Empty list when the SOURCE has none.\n"
     '- "key_terms": 6 to 12 items of {"term": str, "meaning": str}.\n'
     '- "picture": {"title": str, "what_to_draw": str, "caption": str, "alt": str}. '
     "One diagram that would help a student understand the topic. "
@@ -312,6 +349,15 @@ class BoardBuilder:
             )
             pic = data.pop("picture", None) or {}
             board.notes = Notes.model_validate(data)
+            if notes_ctx.strip() and board.notes.formulas:
+                kept = [f for f in board.notes.formulas if formula_in_source(f.latex, notes_ctx)]
+                for f in board.notes.formulas:
+                    if f not in kept:
+                        warnings.append(
+                            f"Formula '{f.name}' was left out because it is not in your files. "
+                            "Add it from the exam formula sheet if it belongs."
+                        )
+                board.notes.formulas = kept
             board.picture = Picture(
                 title=str(pic.get("title", "")),
                 alt=str(pic.get("alt", "")),

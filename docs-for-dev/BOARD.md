@@ -66,6 +66,19 @@ runs, anyone who has the link can use Vboard, so do not share it, and press
 Ctrl+C when done. Without `--phone` only the laptop can reach it. It is not a
 public website and nothing is sent outside your network except the model calls.
 
+## Notes and formulas follow the syllabus and the exam
+
+The notes prompt asks for every subtopic and outcome in the guideline section,
+in the guideline's order and words, with memo-style points and complete lists.
+Formulas must be copied from the uploaded files; after generation, any formula
+whose symbols are not in the files is removed and the tutor is told
+(`formula_in_source` in `builder.py`). Formulas are shown as MathML (converted
+on the laptop with `latex2mathml`, checked against an allow-list), so phones
+show real fractions and subscripts offline. Under *Your level* the tutor can
+add the school or college, the area and the textbooks the students use; the
+board then uses that area for examples and those books' terms. The AI does not
+search for or copy books: upload the pages to build from.
+
 ## Free Gemini limits
 
 On Google's free tier, `gemini-3.8-flash` allows about 20 requests a day (as

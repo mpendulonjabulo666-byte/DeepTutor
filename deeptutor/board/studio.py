@@ -75,12 +75,32 @@ def clean_profile(raw: dict[str, Any]) -> dict[str, str]:
     subject = " ".join(str(raw.get("subject", "")).split())[:120]
     if not subject:
         raise StudioError("Type your subject, for example Construction Planning.")
+    def one_line(key: str, limit: int) -> str:
+        return " ".join(str(raw.get(key, "")).split())[:limit]
+
     return {
         "curriculum": curriculum,
         "level": level,
         "programme": programme,
         "subject": subject,
+        "school": one_line("school", 120),
+        "area": one_line("area", 120),
+        "textbooks": one_line("textbooks", 400),
     }
+
+
+def setting_note(profile: dict[str, str]) -> str:
+    """Tell the AI where the students are and which books they use."""
+    bits = []
+    if profile.get("school") or profile.get("area"):
+        where = ", ".join(x for x in (profile.get("school"), profile.get("area")) if x)
+        bits.append(f"The students are at {where}; use examples from that area where they help.")
+    if profile.get("textbooks"):
+        bits.append(
+            f"Textbooks the students use: {profile['textbooks']}. Use the same terms, symbols and "
+            "answer layout as those books when the SOURCE agrees; never quote a book you were not given."
+        )
+    return " ".join(bits)
 
 
 def level_text(profile: dict[str, str]) -> str:
@@ -439,6 +459,9 @@ class Studio:
                 return section + extra
             return pick_passages(texts, query)
 
+        note = setting_note(profile)
+        if note:
+            focus = f"{note} {focus}".strip()
         try:
             builder = self._builder_factory(context)
             result = asyncio.run(

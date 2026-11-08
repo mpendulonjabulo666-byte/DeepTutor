@@ -44,14 +44,15 @@ _TEMPLATE = r"""<!doctype html>
 <title>__TITLE__</title>
 <style>__FONTS__</style>
 <style>
-:root{--bg:#0e0e11;--card:#17171c;--card2:#1e1e25;--ink:#f4f1ec;--mute:#bdb7ad;--or:#ff8a2a;--line:#2e2e37;--good:#4ade80;--bad:#ff7b72;--focus:#ffd166;--onor:#140a02;
+:root{--bg:#0d0907;--bg2:radial-gradient(130% 70% at 50% -12%,#4a220c 0%,#1c110b 45%,#0d0907 100%);--card:rgba(255,236,220,.055);--card2:rgba(255,236,220,.08);--ink:#f7efe7;--mute:#cbbfb3;--or:#ff8a3d;--or2:#e8590c;--line:rgba(255,236,220,.11);--good:#5be08a;--bad:#ff8a80;--focus:#ffd166;--onor:#1a0b02;--glass:rgba(38,24,16,.62);--glow:0 10px 28px rgba(232,89,12,.35);
 --ui:"Barlow Condensed","Bahnschrift","Roboto Condensed","Arial Narrow",system-ui,sans-serif;--tx:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--r:16px}
-:root.light{--bg:#f7f5f1;--card:#ffffff;--card2:#f1ede6;--ink:#1b1b1f;--mute:#4f4b55;--or:#b8400b;--line:#ddd6cb;--good:#15803d;--bad:#b42318;--focus:#1d4ed8;--onor:#ffffff}
-:root.hc{--bg:#000;--card:#000;--card2:#000;--ink:#fff;--mute:#fff;--or:#ffc23d;--line:#fff;--good:#7dff9b;--bad:#ff9d9d;--focus:#00e5ff;--onor:#000}
+:root.light{--bg:#f7f2ec;--bg2:linear-gradient(180deg,#fbe7d6 0%,#f7f2ec 40%);--card:#ffffff;--card2:#f6efe7;--ink:#1d1611;--mute:#544a42;--or:#b8400b;--or2:#9a3412;--line:#e6dbcf;--good:#15803d;--bad:#b42318;--focus:#1d4ed8;--onor:#ffffff;--glass:rgba(255,255,255,.72);--glow:0 8px 20px rgba(154,52,18,.18)}
+:root.hc{--bg:#000;--bg2:#000;--card:#000;--card2:#000;--ink:#fff;--mute:#fff;--or:#ffc23d;--or2:#ffc23d;--line:#fff;--good:#7dff9b;--bad:#ff9d9d;--focus:#00e5ff;--onor:#000;--glass:#000;--glow:none}
 html.t1{font-size:16px}html.t2{font-size:19px}html.t3{font-size:22px}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.6 var(--tx)}
+body{background:var(--bg2) no-repeat,var(--bg);min-height:100vh}
 :root:not(.calm){scroll-behavior:smooth}
 :root:not(.calm) .cta,:root:not(.calm) .opt,:root:not(.calm) .sec{transition:background .2s,border-color .2s,box-shadow .2s}
 a{color:var(--or)}
@@ -60,26 +61,33 @@ a{color:var(--or)}
 h1,h2,h3{font-family:var(--ui);line-height:1.15;margin:0}
 button{font:inherit;color:inherit}
 /* header */
-.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;height:56px;padding:0 max(14px,env(safe-area-inset-left));background:var(--bg);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;min-height:56px;max-width:1440px;margin:0 auto;padding:8px max(16px,env(safe-area-inset-left)) 0}
 .top .vx-logo{width:32px;height:32px;flex:none}
 .wm{font-family:var(--ui);font-weight:700;letter-spacing:.12em;font-size:1rem}
 .ttop{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mute);font-size:.95rem}
-.iconbtn{min-width:48px;min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-family:var(--ui);font-weight:700;font-size:1.05rem;cursor:pointer}
+.iconbtn{display:none}
 /* tabs */
-.tabs{position:sticky;top:56px;z-index:19;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px max(12px,env(safe-area-inset-left));background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs a{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:12px;color:var(--ink);text-decoration:none;font-family:var(--ui);font-weight:700;font-size:1rem;border:1px solid var(--line);background:var(--card)}
-.tabs a[aria-current="true"]{background:var(--or);color:var(--onor);border-color:var(--or)}
-main{max-width:760px;margin:0 auto;padding:14px 14px 40px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:0 0 14px}
+.dock{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;display:flex;gap:4px;padding:6px;border-radius:999px;background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.dock a,.dock button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:64px;height:58px;border-radius:999px;border:0;background:transparent;color:var(--mute);text-decoration:none;font:600 .72rem/1.1 var(--tx);cursor:pointer}
+.dock svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dock .aa{font-family:var(--ui);font-weight:700;font-size:1.15rem;line-height:22px}
+.dock [aria-current="true"]{background:linear-gradient(180deg,var(--or),var(--or2));color:var(--onor);box-shadow:var(--glow)}
+@media (prefers-reduced-transparency:reduce){.dock{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--bg)}}
+:root.hc .dock{-webkit-backdrop-filter:none;backdrop-filter:none;border-width:2px}
+
+
+main{max-width:760px;margin:0 auto;padding:10px 14px calc(110px + env(safe-area-inset-bottom))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:18px;margin:0 0 14px}
 .draft{border:1px dashed var(--or);color:var(--ink);border-radius:12px;padding:8px 12px;margin:0 0 12px;font-size:.92rem}
 /* today */
 .today .eyebrow{margin:0;color:var(--mute);font-size:.95rem}
 .today h1{font-size:2rem;margin:4px 0 10px;color:var(--ink)}
-.where{margin:0 0 6px;font-weight:600}
+.where{margin:0 0 8px;font-weight:600;color:var(--mute)}
+.where b{font-family:var(--ui);font-size:2.6rem;line-height:1;color:var(--ink);margin-right:6px}
 .bar{height:10px;border-radius:99px;background:var(--card2);border:1px solid var(--line);overflow:hidden}
 .bar span{display:block;height:100%;width:0;background:var(--or)}
 .weak{margin:8px 0 0;color:var(--mute)}
-.cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;margin-top:14px;border:0;border-radius:14px;background:var(--or);color:var(--onor);font-family:var(--ui);font-weight:700;font-size:1.25rem;cursor:pointer}
+.cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;margin-top:14px;border:0;border-radius:14px;background:linear-gradient(180deg,var(--or),var(--or2));color:var(--onor);font-family:var(--ui);font-weight:700;font-size:1.25rem;cursor:pointer;box-shadow:var(--glow)}
 .ghost{min-height:48px;padding:8px 16px;border-radius:12px;border:1px solid var(--line);background:transparent;cursor:pointer;font-weight:600}
 .link{background:none;border:0;padding:10px 0;min-height:44px;color:var(--or);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
@@ -123,6 +131,8 @@ main{max-width:760px;margin:0 auto;padding:14px 14px 40px}
 /* terms, formulas, progress */
 dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)}
 .f{background:var(--card2);border-radius:10px;padding:10px;margin:0 0 8px}
+.f .mm{font-size:1.45rem;padding:6px 0;overflow-x:auto}
+.f .mm math{color:var(--ink)}
 .f code{display:block;font-size:1.05rem;white-space:pre-wrap;color:var(--ink)}
 .plist{list-style:none;padding:0;margin:0}
 .plist li{display:flex;align-items:center;gap:10px;justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0}
@@ -146,7 +156,7 @@ dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)
 @media (min-width:768px){
  main{max-width:1100px}
  .layout{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start}
- .pic-col{position:sticky;top:132px}
+ .pic-col{position:sticky;top:16px}
  .mini{display:none}
  .check-col{display:none}
 }
@@ -154,12 +164,12 @@ dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)
 @media (min-width:1200px){
  main{max-width:1440px}
  .layout{grid-template-columns:minmax(0,3fr) minmax(0,4fr) minmax(0,3fr)}
- .check-col{display:block;position:sticky;top:132px}
+ .check-col{display:block;position:sticky;top:16px}
  .check-col .qcard{margin-top:0}
  .today{display:grid;grid-template-columns:2fr 1fr;gap:6px 24px;align-items:center}
  .today .cta{grid-column:2;grid-row:1 / span 4;margin:0}
 }
-@media print{.top,.tabs,.cta,.veil,.check-col,.iconbtn{display:none!important}.card{break-inside:avoid}}
+@media print{.dock,.cta,.veil,.check-col{display:none!important}body{background:#fff;color:#000}.card{break-inside:avoid}}
 </style>
 </head>
 <body>
@@ -168,11 +178,8 @@ dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)
  __LOGO__
  <span class="wm">VBOARD</span>
  <span class="ttop" id="ttop"></span>
- <button type="button" class="iconbtn" id="aa" aria-haspopup="dialog" aria-label="Settings: text size, colours, motion, read aloud">Aa</button>
 </header>
-<nav class="tabs" aria-label="Jump to a part of this board">
- <a href="#glance" data-t="glance">Picture</a><a href="#notes" data-t="notes">Notes</a><a href="#test" data-t="test">Practice</a><a href="#progress" data-t="progress">Progress</a>
-</nav>
+
 <main id="main">
  <p class="draft" id="draft" hidden>Draft for the tutor to check. Students only receive approved boards.</p>
  <section class="card today" aria-labelledby="title">
@@ -206,6 +213,13 @@ dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)
  </div>
  <p class="foot" id="foot"></p>
 </main>
+<nav class="dock" aria-label="Jump to a part of this board">
+ <a href="#glance" data-t="glance"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>Picture</a>
+ <a href="#notes" data-t="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>Notes</a>
+ <a href="#test" data-t="test"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg>Practice</a>
+ <a href="#progress" data-t="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V12M12 20V5M19 20v-9"/></svg>Progress</a>
+ <button type="button" id="aa" aria-haspopup="dialog" aria-label="Settings: text size, colours, motion, read aloud"><span class="aa" aria-hidden="true">Aa</span>Settings</button>
+</nav>
 <div class="veil" id="v-zoom" hidden><div class="zbox" id="zbox" role="dialog" aria-modal="true" aria-label="Picture, full screen. Tap to close."></div></div>
 <div class="veil" id="v-set" hidden>
  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setLab">
@@ -222,6 +236,7 @@ dl{margin:0}dt{font-weight:700;margin-top:8px}dd{margin:0 0 4px;color:var(--ink)
  </div>
 </div>
 <div id="picture-svg" hidden>__SVG__</div>
+<div id="math" hidden>__MATH__</div>
 <script type="application/json" id="board-data">__BOARD_JSON__</script>
 <script>
 (function(){
@@ -282,7 +297,7 @@ function has(body,k){return(" "+body.replace(/[^a-z0-9 ]/g," ")+" ").indexOf(" "
  if(!svg){frame.removeAttribute("role");frame.removeAttribute("tabindex");frame.style.cursor="default";frame.appendChild(el("p",{class:"nopic",text:"No picture for this topic."}));frame.style.background="transparent";return}
  PIC=svg;svg.setAttribute("role","img");svg.setAttribute("aria-label",pic.alt||pic.title||"Diagram for "+B.topic);
  frame.appendChild(svg);
- $("cap").textContent=((pic.caption||pic.title||"")+" Tap the picture to enlarge it.").trim();
+ var cp=String(pic.caption||pic.title||"").trim();if(cp&&!/[.!?]$/.test(cp))cp+=".";$("cap").textContent=(cp+" Tap the picture to enlarge it.").trim();
  if(pic.credit){$("credit").hidden=false;$("credit").textContent=pic.credit}
  LABELS=[].slice.call(svg.querySelectorAll("text")).map(function(n){var t=norm(n.textContent);return{n:n,raw:String(n.textContent||"").trim(),k:key(t)||(t.length>=3?t:""),fill:n.getAttribute("fill"),w:n.getAttribute("font-weight")}}).filter(function(o){return o.k.length>=2&&!/^[\d.,\s]+[a-z°%]{0,3}$/i.test(o.k)});
  OPENPIC=function(src){var z=$("zbox");clear(z);z.appendChild((src||svg).cloneNode(true));openSheet("v-zoom",z)};
@@ -399,7 +414,7 @@ function jump(id){var t=$(id);if(!t)return;t.scrollIntoView({block:"start"});try
 function goSection(i){setCurrent(i);var t=$("sec-"+i);if(!t)return;t.scrollIntoView({block:"start"});try{t.focus({preventScroll:true})}catch(e){}}
 
 /* ---- tabs are jump links ---- */
-(function(){var tabs=[].slice.call(document.querySelectorAll(".tabs a"));
+(function(){var tabs=[].slice.call(document.querySelectorAll(".dock a"));
  tabs.forEach(function(a){a.addEventListener("click",function(e){e.preventDefault();jump(a.getAttribute("data-t"))})});
  if(!("IntersectionObserver" in window))return;
  var ob=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){var id=e.target.id;tabs.forEach(function(a){a.setAttribute("aria-current",String(a.getAttribute("data-t")===id))})}})},{rootMargin:"-40% 0px -55% 0px"});
@@ -412,7 +427,10 @@ document.addEventListener("keydown",function(e){var t=e.target&&e.target.tagName
 /* ---- terms and formulas ---- */
 (function(){var t=(B.notes&&B.notes.key_terms)||[],f=(B.notes&&B.notes.formulas)||[];
  if(t.length){$("termsbox").hidden=false;t.forEach(function(x){$("terms").appendChild(el("dt",{text:x.term}));$("terms").appendChild(el("dd",{text:x.meaning}))})}
- if(f.length){$("formbox").hidden=false;f.forEach(function(x){var b=el("div",{class:"f"});b.appendChild(el("strong",{text:x.name}));b.appendChild(el("code",{text:x.latex}));if(x.explanation)b.appendChild(el("p",{text:x.explanation,style:"margin:6px 0 0"}));$("formulas").appendChild(b)})}})();
+ if(f.length){$("formbox").hidden=false;f.forEach(function(x,i){var b=el("div",{class:"f"});b.appendChild(el("strong",{text:x.name}));
+  var m=document.querySelector('#math [data-i="'+i+'"] math');
+  if(m){var w=el("div",{class:"mm"});w.appendChild(m);b.appendChild(w)}else b.appendChild(el("code",{text:x.latex}));
+  if(x.explanation)b.appendChild(el("p",{text:x.explanation,style:"margin:6px 0 0"}));$("formulas").appendChild(b)})}})();
 
 /* ---- topic test: one question at a time ---- */
 var TEST=(PLAN.test||[]).filter(function(id){return QS[id]}),ti=0;
@@ -433,7 +451,7 @@ function refresh(){
  var CHK={};(PLAN.sections||[]).forEach(function(p){if(p.check)CHK[p.check]=1});
  var tWrong=tAns.filter(function(id){return !S.ans[id].correct&&!CHK[id]}).length;
  var pct=n?Math.round(done/n*100):0;$("barfill").style.width=pct+"%";$("bar").setAttribute("aria-valuenow",String(pct));
- $("where").textContent=n?done+" of "+n+" sections done":"No sections yet";
+ var wh=$("where");clear(wh);if(n){wh.appendChild(el("b",{text:done+"/"+n}));wh.appendChild(document.createTextNode("sections done"))}else wh.textContent="No sections yet";
  var w=weak+tWrong;$("weak").textContent=w?w+(w===1?" weak spot":" weak spots")+" to go back to":(done?"No weak spots so far.":"Read each section, then answer its check question.");
  var next=-1;for(var j=0;j<n;j++){if(!S.done[j]){next=j;break}}
  var btn=$("continue");
@@ -529,6 +547,51 @@ def plan_layout(board: Board) -> dict[str, Any]:
     }
 
 
+_MATH_TAGS = frozenset(
+    "math mrow mi mn mo ms mtext mspace msub msup msubsup mfrac msqrt mroot mover munder "
+    "munderover mtable mtr mtd mstyle mpadded mphantom mfenced menclose".split()
+)
+_MATH_ATTRS = frozenset(
+    "xmlns display mathvariant stretchy fence separator accent accentunder lspace rspace "
+    "linethickness columnalign rowspacing columnspacing open close separators notation width".split()
+)
+
+
+def latex_to_mathml(latex: str) -> str:
+    """LaTeX to MathML for offline display, or "" if it cannot be done safely.
+
+    The converter escapes text, and the result is parsed again and every element
+    and attribute is checked against a MathML allow-list before it is used.
+    """
+    try:
+        from defusedxml.ElementTree import fromstring
+        from latex2mathml.converter import convert
+    except ImportError:
+        return ""
+    try:
+        out = convert(latex)
+        root = fromstring(out)
+    except Exception:
+        return ""
+    for node in root.iter():
+        tag = str(node.tag).rsplit("}", 1)[-1]
+        if tag not in _MATH_TAGS:
+            return ""
+        if any(a.rsplit("}", 1)[-1] not in _MATH_ATTRS for a in node.attrib):
+            return ""
+    return out
+
+
+def _math_block(board: Board) -> str:
+    parts = []
+    for i, f in enumerate(board.notes.formulas):
+        mathml = latex_to_mathml(f.latex)
+        if mathml:
+            mathml = mathml.replace('display="inline"', 'display="block"', 1)
+            parts.append(f'<div data-i="{i}">{mathml}</div>')
+    return "".join(parts)
+
+
 @lru_cache(maxsize=1)
 def _brand() -> dict:
     return json.loads(_BRAND_FILE.read_text(encoding="utf-8"))
@@ -593,9 +656,10 @@ def render_bundle(board: Board, svg: str = "") -> str:
         "__LOGO__": _still_logo(),
         "__SVG__": _prefix_ids(svg or ""),
         "__BOARD_JSON__": _json_for_script(data),
+        "__MATH__": _math_block(board),
     }
     return re.sub(
-        r"__TITLE__|__FONTS__|__LOGO__|__SVG__|__BOARD_JSON__",
+        r"__TITLE__|__FONTS__|__LOGO__|__SVG__|__BOARD_JSON__|__MATH__",
         lambda m: values[m.group(0)],
         _TEMPLATE,
     )

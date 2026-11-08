@@ -56,7 +56,13 @@ textarea{width:100%}
   <input type="text" id="programme" maxlength="120" placeholder="Civil Engineering and Building Construction">
   <label for="subject">Subject</label>
   <input type="text" id="subject" maxlength="120" placeholder="Construction Planning">
-  <p class="hint">The more the board knows about you, the fewer guesses it makes.</p>
+  <label for="school">School or college (optional)</label>
+  <input type="text" id="school" maxlength="120" placeholder="Majuba TVET College, Newcastle campus">
+  <label for="area">Area (optional)</label>
+  <input type="text" id="area" maxlength="120" placeholder="Newcastle, KwaZulu-Natal">
+  <label for="textbooks">Textbooks your students use (optional)</label>
+  <input type="text" id="textbooks" maxlength="400" placeholder="Title, author and publisher of each book, separated by semicolons">
+  <p class="hint">The board then uses that area for examples and the books' terms and answer layout. Upload the pages you want the notes built from: the AI does not search for or copy books.</p>
   <div class="row"><button type="submit">Save</button></div>
   <p class="err" id="profileErr"></p>
  </form></section>
@@ -120,7 +126,7 @@ function fill(){
   Object.keys(S.curricula).forEach(function(k){opt(cs,k,S.curricula[k].label)});
   if(S.profile)cs.value=S.profile.curriculum;
   levels();
-  if(S.profile){$("level").value=S.profile.level;$("programme").value=S.profile.programme;$("subject").value=S.profile.subject}
+  if(S.profile){$("level").value=S.profile.level;$("programme").value=S.profile.programme;$("subject").value=S.profile.subject;$("school").value=S.profile.school||"";$("area").value=S.profile.area||"";$("textbooks").value=S.profile.textbooks||""}
 }
 function levels(){var ls=$("level");ls.textContent="";S.curricula[$("curriculum").value].levels.forEach(function(l){opt(ls,l,l)})}
 function render(){
@@ -167,7 +173,7 @@ function load(){return api("GET","/api/state").then(function(s){S=s;fill();rende
 $("curriculum").onchange=levels;
 $("changeBtn").onclick=function(){$("profileView").classList.add("hidden");$("profileForm").classList.remove("hidden")};
 $("profileForm").onsubmit=function(ev){ev.preventDefault();$("profileErr").textContent="";
-  post("/api/profile",{curriculum:$("curriculum").value,level:$("level").value,programme:$("programme").value,subject:$("subject").value}).then(load).catch(function(e){$("profileErr").textContent=e.message})};
+  post("/api/profile",{curriculum:$("curriculum").value,level:$("level").value,programme:$("programme").value,subject:$("subject").value,school:$("school").value,area:$("area").value,textbooks:$("textbooks").value}).then(load).catch(function(e){$("profileErr").textContent=e.message})};
 $("uploadBtn").onclick=function(){$("fileErr").textContent="";var f=$("file").files[0];if(!f){$("fileErr").textContent="Choose a file first.";return}
   $("uploadBtn").disabled=true;$("fileErr").textContent="Reading the file. A scanned PDF is read with Gemini and can take a few minutes. Keep this page open.";$("fileErr").style.color="var(--mute)";
   api("POST","/api/docs",f,{"X-Filename":encodeURIComponent(f.name),"Content-Type":"application/octet-stream"}).then(function(){$("file").value="";$("fileErr").style.color="";$("fileErr").textContent="";return load()}).catch(function(e){$("fileErr").style.color="";$("fileErr").textContent=e.message}).then(function(){$("uploadBtn").disabled=false})};
