@@ -215,3 +215,9 @@ Checks on the phone: all four tabs work in airplane mode; answer five
 questions, close the page, reopen it, and confirm the answers are still there.
 If a file opened from Downloads does not keep answers, use **Save progress
 file** and **Load progress file** on the Progress tab, or use option 2.
+
+## Pictures from a web address
+
+In the studio's pictures card, paste or drag a picture's web address and Vboard downloads it once (3 MB limit, public websites only, no localhost or home-network addresses, redirects checked). The source address and a licence note are saved with the picture; an empty licence is stored as "not checked".
+
+Reminder for when boards are built for other people: block approval of a board that uses a picture whose licence is "not checked", and show the credit under the picture. Not built yet, since the board is for the founder's own study.

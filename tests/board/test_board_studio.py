@@ -494,3 +494,24 @@ def test_picture_description_guides_the_build(tmp_path):
     assert st._picture_parts(off["id"], job) == "" and "mime" not in seen  # not sent unless ticked
     on = st.library.add("q.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "Photo", ai_read=True)
     assert st._picture_parts(on["id"], job) == "Staff: 1.5 m reading" and seen["mime"] == "image/png"
+
+
+def test_picture_url_refuses_private_and_bad_addresses():
+    import pytest
+
+    from deeptutor.board.pictures import PictureError, fetch_picture
+
+    for bad in ("http://127.0.0.1/a.png", "http://localhost/a.png", "file:///etc/passwd", "ftp://x.org/a.png", ""):
+        with pytest.raises(PictureError):
+            fetch_picture(bad)
+
+
+def test_picture_from_web_keeps_source_and_licence(tmp_path):
+    from deeptutor.board.pictures import PictureLibrary
+
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>'
+    lib = PictureLibrary(tmp_path)
+    a = lib.add("a.svg", svg, "Level", False, "https://example.org/a.svg", "")
+    b = lib.add("b.svg", svg, "Plain")
+    assert a["source_url"] == "https://example.org/a.svg" and a["license"] == "not checked"
+    assert "source_url" not in b

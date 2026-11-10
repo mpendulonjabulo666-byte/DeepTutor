@@ -23,7 +23,7 @@ import uuid
 
 from .bundle import render_bundle, write_bundle
 from .editing import BoardEditor, EditError
-from .pictures import PictureError, PictureLibrary
+from .pictures import PictureError, PictureLibrary, fetch_picture
 from .schema import Picture
 from .store import BoardNotFound, BoardStore
 
@@ -790,6 +790,23 @@ def make_studio_server(
                     ai = (self.headers.get("X-AI-Read") or "") == "1"
                     return self._json(
                         200, {"picture": studio.library.add(name, self._body(), cap, ai)}
+                    )
+                if path == "/api/pictures/url":
+                    body = self._json_body()
+                    url = str(body.get("url", ""))
+                    name, data = fetch_picture(url)
+                    return self._json(
+                        200,
+                        {
+                            "picture": studio.library.add(
+                                name,
+                                data,
+                                str(body.get("caption", "")),
+                                bool(body.get("ai_read", False)),
+                                url.strip(),
+                                str(body.get("license", "")),
+                            )
+                        },
                     )
                 m = re.fullmatch(r"/api/pictures/([0-9a-f]{12})/delete", path)
                 if m:

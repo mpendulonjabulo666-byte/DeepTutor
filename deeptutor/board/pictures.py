@@ -9,10 +9,15 @@ from __future__ import annotations
 
 import base64
 import io
+import ipaddress
 import json
 from pathlib import Path
 import re
+import socket
 from typing import Any
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 
 from .svg import UnsafeSvg, sanitize_svg
@@ -81,7 +86,13 @@ class PictureLibrary:
         return [d for d in data if isinstance(d, dict) and (self.dir / d.get("file", "")).is_file()]
 
     def add(
-        self, filename: str, data: bytes, caption: str = "", ai_read: bool = False
+        self,
+        filename: str,
+        data: bytes,
+        caption: str = "",
+        ai_read: bool = False,
+        source_url: str = "",
+        license_note: str = "",
     ) -> dict[str, Any]:
         if not data or len(data) > MAX_PICTURE_BYTES:
             raise PictureError("That picture is empty or bigger than 3 MB.")
@@ -103,6 +114,9 @@ class PictureLibrary:
             "caption": " ".join(caption.split())[:300] or Path(name).stem.replace("-", " ")[:300],
             "ai_read": bool(ai_read),
         }
+        if source_url:
+            meta["source_url"] = source_url[:500]
+            meta["license"] = " ".join(license_note.split())[:200] or "not checked"
         self._index.write_text(json.dumps([*items, meta], indent=2), encoding="utf-8")
         return meta
 
@@ -143,3 +157,44 @@ class PictureLibrary:
             return None
         mime = {"png": "image/png", "jpeg": "image/jpeg", "webp": "image/webp", "svg": "image/svg+xml"}
         return (self.dir / meta["file"]).read_bytes(), mime[meta["kind"]]
+
+
+def _check_public(url: str) -> None:
+    """Refuse anything that is not a public http(s) address (no localhost, no home network)."""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise PictureError("Paste a web address that starts with http:// or https://")
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except OSError as exc:
+        raise PictureError("Could not find that website. Check the address.") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not ip.is_global:
+            raise PictureError("That address is not a public website, so it was not opened.")
+
+
+class _Hop(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        _check_public(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def fetch_picture(url: str) -> tuple[str, bytes]:
+    """Download one picture from a public web address, once. Returns (file name, bytes)."""
+    url = url.strip()
+    _check_public(url)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 Vboard"})
+    opener = urllib.request.build_opener(_Hop)
+    try:
+        with opener.open(req, timeout=15) as resp:  # noqa: S310 - scheme and host checked above
+            data = resp.read(MAX_PICTURE_BYTES + 1)
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        raise PictureError(
+            "That website did not let Vboard download the picture. Save it to your phone or "
+            "laptop and upload it instead."
+        ) from exc
+    if len(data) > MAX_PICTURE_BYTES:
+        raise PictureError("That picture is bigger than 3 MB.")
+    name = Path(urllib.parse.urlsplit(url).path).name or "picture"
+    return name, data
