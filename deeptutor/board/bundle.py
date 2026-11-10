@@ -109,6 +109,7 @@ main{max-width:760px;margin:0 auto;padding:10px 14px calc(110px + env(safe-area-
 .simple{background:var(--card2);border-radius:12px;padding:10px 12px;margin:0 0 12px}
 .simple strong{display:block;font-family:var(--ui);font-size:1.05rem}
 .mini{margin:0 0 12px;background:#fff;border-radius:12px;padding:6px;border:1px solid var(--line);cursor:zoom-in}
+.xbox p{white-space:pre-line}
 .xbox{background:var(--card2);border-radius:12px;padding:12px;margin:8px 0}
 .xbox h3{font-size:1.1rem;margin:0 0 6px}.xbox p{margin:0 0 8px}
 /* questions */
@@ -353,9 +354,9 @@ function qui(box,q,label,done){
 /* ---- sections: the spine ---- */
 var cur=0;
 function status(i){if(S.done[i])return"done";if(S.weak[i])return"weak";return"new"}
-function explainBox(ex,wrap){var x=el("div",{class:"xbox"});x.appendChild(el("h3",{text:"In plain words"}));x.appendChild(el("p",{text:ex.explanation}));
- if(ex.example){x.appendChild(el("h3",{text:"Example"}));x.appendChild(el("p",{text:ex.example}))}
- if(ex.mistake){x.appendChild(el("h3",{text:"Common mistake"}));x.appendChild(el("p",{text:ex.mistake}))}
+function explainBox(ex,wrap){var x=el("div",{class:"xbox"});x.appendChild(el("h3",{text:"What the book says"}));x.appendChild(el("p",{text:ex.explanation}));
+ if(ex.example){x.appendChild(el("h3",{text:"Write it like this in the exam"}));x.appendChild(el("p",{text:ex.example}))}
+ if(ex.mistake){x.appendChild(el("h3",{text:"Where marks are lost"}));x.appendChild(el("p",{text:ex.mistake}))}
  if(wrap)wrap.appendChild(x);return x}
 function listen(text,btn){if(!("speechSynthesis" in window))return;var ss=window.speechSynthesis;if(ss.speaking){ss.cancel();btn.textContent="Listen";return}
  var u=new SpeechSynthesisUtterance(text);u.lang="en-ZA";u.rate=.95;u.onend=function(){btn.textContent="Listen"};btn.textContent="Stop";ss.speak(u)}
@@ -389,7 +390,7 @@ function renderSections(){
   if(PIC&&lab.length){var m=el("figure",{class:"mini",role:"button",tabindex:"0","aria-label":"Picture for this section, tap to enlarge"});var cl=PIC.cloneNode(true);cl.removeAttribute("id");light(cl,lab);m.appendChild(cl);m.addEventListener("click",function(){OPENPIC(cl)});m.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();OPENPIC(cl)}});sec.appendChild(m)}
   var ul=el("ul",{class:"pts"});(s.points||[]).forEach(function(p){ul.appendChild(el("li",{text:p}))});sec.appendChild(ul);
   var tools=el("div",{class:"row"});
-  if(ex&&P.simple!=="on"){var xw=el("div",{hidden:""});var xb=el("button",{class:"link",type:"button","aria-expanded":"false",text:"Explain it to me"});xb.addEventListener("click",function(){var open=xw.hidden;xw.hidden=!open;xb.setAttribute("aria-expanded",String(open));if(open&&!xw.firstChild)explainBox(ex,xw)});tools.appendChild(xb);sec.appendChild(tools);sec.appendChild(xw)}
+  if(ex&&P.simple!=="on"){var xw=el("div",{hidden:""});var xb=el("button",{class:"link",type:"button","aria-expanded":"false",text:"Show me how the book explains it"});xb.addEventListener("click",function(){var open=xw.hidden;xw.hidden=!open;xb.setAttribute("aria-expanded",String(open));if(open&&!xw.firstChild)explainBox(ex,xw)});tools.appendChild(xb);sec.appendChild(tools);sec.appendChild(xw)}
   else sec.appendChild(tools);
   if("speechSynthesis" in window){var lb=el("button",{class:"ghost",type:"button",text:"Listen","aria-label":"Read this section aloud"});lb.addEventListener("click",function(){listen(s.heading+". "+(s.points||[]).join(" "),lb)});tools.appendChild(lb)}
   var slot=el("div",{class:"slot",id:"slot-"+i});sec.appendChild(slot);checkFor(i,slot);

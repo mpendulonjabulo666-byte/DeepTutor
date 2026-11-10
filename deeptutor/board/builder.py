@@ -47,8 +47,10 @@ ContextFn = Callable[[str, str], Awaitable[str]]
 MAX_CONTEXT_CHARS = 12_000
 
 _STYLE = (
-    "Write for students at a South African TVET college. Use plain English, short sentences "
-    "and everyday words. Explain technical terms the first time they appear. "
+    "Write for students at a South African TVET college, in the voice and layout of their "
+    "textbook and the department's memorandum: use the exact technical terms the SOURCE and the "
+    "exam papers use, never swap them for everyday words, and give a short definition the first "
+    "time a term appears. Be specific and complete, never vague or general. "
     "Use only facts that appear in SOURCE when SOURCE is given. When SOURCE is empty, use only "
     "well-established general knowledge. Never invent figures, standards, regulations or clause "
     "numbers. If you are unsure of a value, leave it out. Teach only what the topic itself covers "
@@ -92,7 +94,11 @@ NOTES_SYSTEM = (
     "Cover EVERY subtopic and outcome the SOURCE lists for this topic, in the order the guideline "
     "gives them, with headings in the guideline's own words. Nothing in the syllabus is left out. "
     "Write points the way a memo answer is written: one fact per point, so a student can write it "
-    "straight into an exam answer. When the source lists items (instruments, materials, steps, "
+    "straight into an exam answer. Lay each section out like the textbook: first point is the "
+    "definition or purpose in the book's words, then the types, parts, steps or rules the source "
+    "gives (each with its purpose or use), then safety or maintenance points if the source has "
+    "them. Where the source's past papers ask 'name', 'list', 'state', 'describe' or 'explain', "
+    "write the points so they answer those questions directly. When the source lists items (instruments, materials, steps, "
     "types), give the complete list, every item the source names, with one plain line each, so a "
     "question such as 'list five' can always be answered.\n"
     '- "formulas": items of {"name": str, "latex": str, "explanation": str}. Copy each formula '
@@ -131,15 +137,20 @@ PRACTICE_SYSTEM = (
 
 
 EXPLAIN_SYSTEM = (
-    "You are a patient tutor. For each skill on the mastery path, explain it the way a good "
-    "teacher would to a student who got it wrong.\n" + _STYLE + "\n\n"
+    "You are a TVET lecturer who has just marked a student's wrong answer. Teach the skill the "
+    "way the textbook and the marking memorandum do, so the student can write the answer in an "
+    "exam.\n" + _STYLE + "\n\n"
     'JSON key "explainers": one item per mastery path id. Each item:\n'
     '- "kp_id": the mastery path id.\n'
     '- "title": the skill, in a few words.\n'
-    '- "explanation": 3 to 6 short sentences in plain English. Say what it is, then why, then how.\n'
-    '- "example": a simple everyday example from a South African building site or a house '
-    "(bricks, cement, a trench, a tape measure). No invented numbers or standards.\n"
-    '- "mistake": the most common mistake students make, in one sentence.\n'
+    '- "explanation": what the textbook says, in its own terms: the definition first, then the '
+    "types, parts, steps or rules, each on its own line separated by a newline and starting with "
+    '"1.", "2." or "-". Include what each one is used for. Use only facts from SOURCE.\n'
+    '- "example": a model exam answer in memorandum style for a question on this skill: short '
+    "lines, one fact each, as a student would write it for full marks. State the question first "
+    'in the form "Question: ...", then "Answer:" and the lines.\n'
+    '- "mistake": the specific mistake that loses marks in an exam on this skill (for example a '
+    "missing step, a wrong term, a unit left out), in one or two sentences.\n"
     '- "check": a NEW question on the same idea (not one already asked) with keys '
     '"type" (single_choice or true_false), "question", "options" ({"A","B","C"} for single_choice, '
     'otherwise {}), "answer" (key like "B", or "true"/"false"), "marks" 1, "explanation" (one sentence).'
