@@ -288,6 +288,9 @@ class Studio:
         self._ocr = ocr
         self._describe = describe
         self.library = PictureLibrary(self.folder / "pictures")
+        self.inbox = self.folder / "inbox"
+        self.inbox.mkdir(parents=True, exist_ok=True)
+        self.inbox_report: dict[str, Any] = {"added": [], "problems": [], "at": ""}
         self.editor = BoardEditor(store, chat_llm)
 
     def _picture_parts(self, picture_id: str, job: Job) -> str:
@@ -377,6 +380,57 @@ class Studio:
             raise StudioError(f"This PDF is photos of pages. {exc}") from exc
         except Exception as exc:
             raise StudioError(f"This PDF is photos of pages and could not be read: {exc}") from exc
+
+    def scan_inbox(self) -> dict[str, Any]:
+        """Import new files dropped into the inbox folder (documents and pictures).
+
+        A file is read once (by its content hash). A file that failed is tried again only
+        if it changes. Nothing is deleted from the folder.
+        """
+        import hashlib
+        import time
+
+        seen_path = self.inbox / ".seen.json"
+        try:
+            seen = json.loads(seen_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            seen = {}
+        added: list[str] = []
+        problems: list[str] = []
+        pic_ext = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
+        files = sorted(
+            f for f in self.inbox.rglob("*")
+            if f.is_file() and not f.name.startswith(".") and f.stat().st_size > 0
+        )
+        for f in files[:200]:
+            ext = f.suffix.lower()
+            if ext not in ALLOWED_EXT and ext not in pic_ext:
+                continue
+            try:
+                data = f.read_bytes()
+            except OSError:
+                continue
+            digest = hashlib.sha256(data).hexdigest()
+            if digest in seen:
+                continue
+            try:
+                if ext in pic_ext:
+                    self.library.add(f.name, data, "", False)
+                else:
+                    self.add_doc(f.name, data)
+                added.append(f.name)
+                seen[digest] = {"name": f.name, "ok": True}
+            except (StudioError, PictureError) as exc:
+                problems.append(f"{f.name}: {exc}")
+                seen[digest] = {"name": f.name, "ok": False}
+        seen_path.write_text(json.dumps(seen, indent=1), encoding="utf-8")
+        self.inbox_report = {
+            "added": added,
+            "problems": problems,
+            "at": time.strftime("%H:%M"),
+            "folder": str(self.inbox),
+        }
+        return self.inbox_report
 
     def delete_doc(self, doc_id: str) -> None:
         if not re.fullmatch(r"[0-9a-f]{12}", doc_id):
@@ -565,6 +619,7 @@ class Studio:
             ],
             "trash": self.trashed(),
             "pictures": self.library.list(),
+            "inbox": {**self.inbox_report, "folder": str(self.inbox)},
             "job": latest.public() if latest else None,
         }
 
@@ -791,6 +846,8 @@ def make_studio_server(
                     return self._json(
                         200, {"picture": studio.library.add(name, self._body(), cap, ai)}
                     )
+                if path == "/api/inbox/scan":
+                    return self._json(200, {"inbox": studio.scan_inbox()})
                 if path == "/api/pictures/url":
                     body = self._json_body()
                     url = str(body.get("url", ""))

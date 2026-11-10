@@ -73,6 +73,12 @@ textarea{width:100%}
  <p class="err" id="fileErr"></p>
  <ul id="docList"></ul></section>
 
+<section class="card" id="cInbox"><h2><span class="num">+</span>Your folder</h2>
+ <p class="hint" style="margin-top:0">Drop your documents (PDF, Word, text) and pictures into this folder on the laptop, then press Scan. Vboard reads every new file once and adds it below. Files are never deleted from the folder.</p>
+ <p class="hint" id="inboxPath" style="word-break:break-all"></p>
+ <div class="row"><button type="button" id="scanBtn">Scan my folder</button></div>
+ <p id="inboxMsg" class="hint"></p></section>
+
 <section class="card" id="c2b"><h2><span class="num">+</span>Your pictures (optional)</h2>
  <p class="hint" style="margin-top:0">Add pictures you trust (PNG, JPG, WEBP or SVG, up to 3 MB each): a diagram from your textbook, a photo of a workshop tool. When you build a board you can choose one, and it is used as the board's picture exactly as you made it. The AI is told what you called it. If you tick the box, a PNG, JPG or WEBP is also sent to Google (Gemini) once so the AI can read what is labelled in it; an SVG's labels are read on this computer only. Pictures are kept on this computer.</p>
  <label for="picCap">What is it? (a short name)</label>
@@ -143,6 +149,8 @@ function render(){
   S.docs.forEach(function(d){var li=el("li");li.appendChild(el("span",d.name));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/docs/"+d.id+"/delete").then(load).catch(function(e){$("fileErr").textContent=e.message})};li.appendChild(b);dl.appendChild(li)});
   var pl=$("picList");pl.textContent="";var ps=$("pickPic");ps.textContent="";opt(ps,"","Let Vboard draw one (exact templates first)");
   (S.pictures||[]).forEach(function(p){var li=el("li");li.appendChild(el("span",p.caption+(p.source_url?" [from the web, licence: "+p.license+"]":"")+(p.kind!=="svg"?(p.ai_read?" (AI may read it)":" (AI does not read it)"):"")));var b=el("button","Remove","ghost");b.type="button";b.onclick=function(){post("/api/pictures/"+p.id+"/delete").then(load).catch(function(e){$("picErr").textContent=e.message})};li.appendChild(b);pl.appendChild(li);opt(ps,p.id,"Use my picture: "+p.caption)});
+  var ib=S.inbox||{};$("inboxPath").textContent="Folder: "+(ib.folder||"");
+  if(ib.at){$("inboxMsg").textContent="Scanned at "+ib.at+": "+(ib.added||[]).length+" new file(s) added."+((ib.problems||[]).length?" Problems: "+ib.problems.join(" | "):"")}
   if(!(S.pictures||[]).length){var e0=el("li");e0.appendChild(el("span","No pictures yet.","hint"));pl.appendChild(e0)}
   var ts=$("topicSel"),keep=ts.value;ts.textContent="";
   S.topics.forEach(function(t){opt(ts,t.name,"Topic "+t.number+": "+t.name+(t.weight?" ("+t.weight+"%)":""))});
@@ -190,6 +198,7 @@ $("picBtn").onclick=function(){$("picErr").textContent="";var f=$("picFile").fil
   api("POST","/api/pictures",f,{"X-Filename":encodeURIComponent(f.name),"X-Caption":encodeURIComponent($("picCap").value),"X-AI-Read":$("picAi").checked?"1":"0","Content-Type":"application/octet-stream"}).then(function(){$("picFile").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message})};
 $("picUrlBtn").onclick=function(){$("picErr").textContent="";var u=$("picUrl").value.trim();if(!u){$("picErr").textContent="Paste a web address first.";return}
   $("picUrlBtn").disabled=true;post("/api/pictures/url",{url:u,caption:$("picCap").value,license:$("picSrc").value,ai_read:$("picAi").checked}).then(function(){$("picUrl").value="";$("picSrc").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message}).then(function(){$("picUrlBtn").disabled=false})};
+$("scanBtn").onclick=function(){$("scanBtn").disabled=true;$("inboxMsg").textContent="Reading the folder. Scanned PDFs can take a few minutes. Keep this page open.";post("/api/inbox/scan",{}).then(function(){return load()}).catch(function(e){$("inboxMsg").textContent=e.message}).then(function(){$("scanBtn").disabled=false})};
 var editId=null;
 function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
 function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes and questions: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";

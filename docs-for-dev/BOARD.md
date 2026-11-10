@@ -221,3 +221,7 @@ file** and **Load progress file** on the Progress tab, or use option 2.
 In the studio's pictures card, paste or drag a picture's web address and Vboard downloads it once (3 MB limit, public websites only, no localhost or home-network addresses, redirects checked). The source address and a licence note are saved with the picture; an empty licence is stored as "not checked".
 
 Reminder for when boards are built for other people: block approval of a board that uses a picture whose licence is "not checked", and show the credit under the picture. Not built yet, since the board is for the founder's own study.
+
+## Your folder (inbox)
+
+The studio has a folder (`board_studio/inbox`, shown on the page). Drop PDFs, Word and text files and PNG/JPG/WEBP/SVG pictures in it, including in sub-folders, then press "Scan my folder". Each file is read once (by content); failed files are retried only if they change. Nothing is deleted from the folder. Pictures from the folder are never sent to Gemini.

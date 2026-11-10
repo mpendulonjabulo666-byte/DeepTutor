@@ -515,3 +515,21 @@ def test_picture_from_web_keeps_source_and_licence(tmp_path):
     b = lib.add("b.svg", svg, "Plain")
     assert a["source_url"] == "https://example.org/a.svg" and a["license"] == "not checked"
     assert "source_url" not in b
+
+
+def test_scan_inbox_imports_once_and_reports_problems(tmp_path):
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio
+
+    st = Studio(BoardStore(tmp_path / "boards"), tmp_path / "studio")
+    (st.inbox / "sub").mkdir()
+    (st.inbox / "notes.txt").write_text("Levelling uses a dumpy level. " * 20, "utf-8")
+    (st.inbox / "sub" / "p.svg").write_bytes(
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>'
+    )
+    (st.inbox / "short.txt").write_text("too short", "utf-8")
+    r = st.scan_inbox()
+    assert sorted(r["added"]) == ["notes.txt", "p.svg"] and len(r["problems"]) == 1
+    assert len(st.docs()) == 1 and len(st.library.list()) == 1
+    r2 = st.scan_inbox()
+    assert r2["added"] == [] and r2["problems"] == []
