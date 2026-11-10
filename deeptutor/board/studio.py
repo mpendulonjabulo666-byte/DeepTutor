@@ -289,6 +289,12 @@ class Studio:
         self._describe = describe
         self.library = PictureLibrary(self.folder / "pictures")
         self.inbox = self.folder / "inbox"
+        try:
+            chosen = json.loads((self.folder / "inbox.json").read_text("utf-8")).get("path", "")
+            if chosen and Path(chosen).is_dir():
+                self.inbox = Path(chosen)
+        except (OSError, ValueError, AttributeError):
+            pass
         self.inbox.mkdir(parents=True, exist_ok=True)
         self.inbox_report: dict[str, Any] = {"added": [], "problems": [], "at": ""}
         self.editor = BoardEditor(store, chat_llm)
@@ -380,6 +386,30 @@ class Studio:
             raise StudioError(f"This PDF is photos of pages. {exc}") from exc
         except Exception as exc:
             raise StudioError(f"This PDF is photos of pages and could not be read: {exc}") from exc
+
+    def set_inbox(self, path: str) -> str:
+        """Use another folder on this computer as the inbox (it must already exist)."""
+        p = Path(path.strip().strip('"')).expanduser()
+        if not path.strip() or not p.is_dir():
+            raise StudioError("That folder was not found. Paste the full path of an existing folder.")
+        self.inbox = p
+        (self.folder / "inbox.json").write_text(json.dumps({"path": str(p)}), encoding="utf-8")
+        return str(p)
+
+    def open_inbox(self) -> None:
+        import os
+        import subprocess
+        import sys
+
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(self.inbox))  # noqa: S606
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(self.inbox)])  # noqa: S603,S607
+            else:
+                subprocess.Popen(["xdg-open", str(self.inbox)])  # noqa: S603,S607
+        except OSError as exc:
+            raise StudioError("Could not open the folder. Open it yourself from the path shown.") from exc
 
     def scan_inbox(self) -> dict[str, Any]:
         """Import new files dropped into the inbox folder (documents and pictures).
@@ -846,6 +876,14 @@ def make_studio_server(
                     return self._json(
                         200, {"picture": studio.library.add(name, self._body(), cap, ai)}
                     )
+                if path in ("/api/inbox/set", "/api/inbox/open"):
+                    if self.client_address[0] not in ("127.0.0.1", "::1"):
+                        return self._json(403, {"error": "Do this on the laptop itself."})
+                    if path.endswith("open"):
+                        studio.open_inbox()
+                        return self._json(200, {"ok": True})
+                    studio.set_inbox(str(self._json_body().get("path", "")))
+                    return self._json(200, {"inbox": studio.scan_inbox()})
                 if path == "/api/inbox/scan":
                     return self._json(200, {"inbox": studio.scan_inbox()})
                 if path == "/api/pictures/url":

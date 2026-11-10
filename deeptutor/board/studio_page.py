@@ -76,7 +76,10 @@ textarea{width:100%}
 <section class="card" id="cInbox"><h2><span class="num">+</span>Your folder</h2>
  <p class="hint" style="margin-top:0">Drop your documents (PDF, Word, text) and pictures into this folder on the laptop, then press Scan. Vboard reads every new file once and adds it below. Files are never deleted from the folder.</p>
  <p class="hint" id="inboxPath" style="word-break:break-all"></p>
- <div class="row"><button type="button" id="scanBtn">Scan my folder</button></div>
+ <div class="row"><button type="button" id="scanBtn">Scan my folder</button><button type="button" id="openBtn" class="ghost">Open this folder</button></div>
+ <label for="inboxNew">Use a different folder (paste its full path, on the laptop)</label>
+ <input type="text" id="inboxNew" placeholder="Example: C:\\Users\\User\\Documents\\Plant and Equipment">
+ <div class="row"><button type="button" id="setInboxBtn" class="ghost">Use this folder and scan it</button></div>
  <p id="inboxMsg" class="hint"></p></section>
 
 <section class="card" id="c2b"><h2><span class="num">+</span>Your pictures (optional)</h2>
@@ -199,6 +202,9 @@ $("picBtn").onclick=function(){$("picErr").textContent="";var f=$("picFile").fil
 $("picUrlBtn").onclick=function(){$("picErr").textContent="";var u=$("picUrl").value.trim();if(!u){$("picErr").textContent="Paste a web address first.";return}
   $("picUrlBtn").disabled=true;post("/api/pictures/url",{url:u,caption:$("picCap").value,license:$("picSrc").value,ai_read:$("picAi").checked}).then(function(){$("picUrl").value="";$("picSrc").value="";$("picCap").value="";return load()}).catch(function(e){$("picErr").textContent=e.message}).then(function(){$("picUrlBtn").disabled=false})};
 $("scanBtn").onclick=function(){$("scanBtn").disabled=true;$("inboxMsg").textContent="Reading the folder. Scanned PDFs can take a few minutes. Keep this page open.";post("/api/inbox/scan",{}).then(function(){return load()}).catch(function(e){$("inboxMsg").textContent=e.message}).then(function(){$("scanBtn").disabled=false})};
+$("openBtn").onclick=function(){post("/api/inbox/open",{}).catch(function(e){$("inboxMsg").textContent=e.message})};
+$("setInboxBtn").onclick=function(){var v=$("inboxNew").value.trim();if(!v){$("inboxMsg").textContent="Paste the folder's full path first.";return}
+  $("inboxMsg").textContent="Reading the folder...";post("/api/inbox/set",{path:v}).then(function(){$("inboxNew").value="";return load()}).catch(function(e){$("inboxMsg").textContent=e.message})};
 var editId=null;
 function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
 function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes and questions: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";

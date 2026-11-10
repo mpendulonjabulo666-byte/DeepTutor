@@ -533,3 +533,20 @@ def test_scan_inbox_imports_once_and_reports_problems(tmp_path):
     assert len(st.docs()) == 1 and len(st.library.list()) == 1
     r2 = st.scan_inbox()
     assert r2["added"] == [] and r2["problems"] == []
+
+
+def test_set_inbox_uses_another_existing_folder(tmp_path):
+    import pytest
+
+    from deeptutor.board.store import BoardStore
+    from deeptutor.board.studio import Studio, StudioError
+
+    mine = tmp_path / "mine"
+    mine.mkdir()
+    (mine / "n.txt").write_text("Levelling uses a dumpy level. " * 20, "utf-8")
+    st = Studio(BoardStore(tmp_path / "boards"), tmp_path / "studio")
+    with pytest.raises(StudioError):
+        st.set_inbox(str(tmp_path / "nope"))
+    st.set_inbox(f'"{mine}"')
+    assert st.scan_inbox()["added"] == ["n.txt"]
+    assert Studio(BoardStore(tmp_path / "boards"), tmp_path / "studio").inbox == mine

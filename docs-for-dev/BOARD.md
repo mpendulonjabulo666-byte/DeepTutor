@@ -225,3 +225,5 @@ Reminder for when boards are built for other people: block approval of a board t
 ## Your folder (inbox)
 
 The studio has a folder (`board_studio/inbox`, shown on the page). Drop PDFs, Word and text files and PNG/JPG/WEBP/SVG pictures in it, including in sub-folders, then press "Scan my folder". Each file is read once (by content); failed files are retried only if they change. Nothing is deleted from the folder. Pictures from the folder are never sent to Gemini.
+
+The folder card also has "Open this folder" and "Use a different folder" (paste a full path of an existing folder; remembered next time). Both work from the laptop itself only, not from a phone.
