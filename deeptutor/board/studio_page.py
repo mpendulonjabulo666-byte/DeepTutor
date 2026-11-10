@@ -76,8 +76,10 @@ textarea{width:100%}
 <section class="card" id="cInbox"><h2><span class="num">+</span>Your folder</h2>
  <p class="hint" style="margin-top:0">Drop your documents (PDF, Word, text) and pictures into this folder on the laptop, then press Scan. Vboard reads every new file once and adds it below. Files are never deleted from the folder.</p>
  <p class="hint" id="inboxPath" style="word-break:break-all"></p>
+ <label for="folderPick">Choose a folder from your computer or flash drive</label>
+ <div class="row"><input type="file" id="folderPick" webkitdirectory multiple><button type="button" id="folderBtn">Add everything in this folder</button></div>
  <div class="row"><button type="button" id="scanBtn">Scan my folder</button><button type="button" id="openBtn" class="ghost">Open this folder</button></div>
- <label for="inboxNew">Use a different folder (paste its full path, on the laptop)</label>
+ <label for="inboxNew">Or paste the full path of a folder on the laptop (starts with a drive letter, like C:\\ or E:\\)</label>
  <input type="text" id="inboxNew" placeholder="Example: C:\\Users\\User\\Documents\\Plant and Equipment">
  <div class="row"><button type="button" id="setInboxBtn" class="ghost">Use this folder and scan it</button></div>
  <p id="inboxMsg" class="hint"></p></section>
@@ -205,6 +207,15 @@ $("scanBtn").onclick=function(){$("scanBtn").disabled=true;$("inboxMsg").textCon
 $("openBtn").onclick=function(){post("/api/inbox/open",{}).catch(function(e){$("inboxMsg").textContent=e.message})};
 $("setInboxBtn").onclick=function(){var v=$("inboxNew").value.trim();if(!v){$("inboxMsg").textContent="Paste the folder's full path first.";return}
   $("inboxMsg").textContent="Reading the folder...";post("/api/inbox/set",{path:v}).then(function(){$("inboxNew").value="";return load()}).catch(function(e){$("inboxMsg").textContent=e.message})};
+$("folderBtn").onclick=function(){var fs=Array.prototype.slice.call($("folderPick").files||[]);if(!fs.length){$("inboxMsg").textContent="Press Choose Files above and select your folder first.";return}
+  var de={pdf:1,docx:1,txt:1,md:1},pe={png:1,jpg:1,jpeg:1,webp:1,svg:1},have={};
+  (S.docs||[]).forEach(function(d){have[d.name]=1});(S.pictures||[]).forEach(function(p){have[p.name]=1});
+  var todo=fs.filter(function(f){var x=f.name.split(".").pop().toLowerCase();return(de[x]||pe[x])&&!have[f.name]&&f.size>0});
+  var skipped=fs.length-todo.length,ok=0,bad=[],i=0;$("folderBtn").disabled=true;
+  function next(){if(i>=todo.length){$("folderBtn").disabled=false;$("folderPick").value="";$("inboxMsg").textContent="Done: "+ok+" added, "+skipped+" skipped (already added or not a document or picture)."+(bad.length?" Problems: "+bad.join(" | "):"");return load()}
+    var f=todo[i++],x=f.name.split(".").pop().toLowerCase();$("inboxMsg").textContent="Adding "+i+" of "+todo.length+": "+f.name+" (scanned PDFs can take a few minutes)";
+    api("POST",pe[x]?"/api/pictures":"/api/docs",f,pe[x]?{"X-Filename":encodeURIComponent(f.name),"X-Caption":"","X-AI-Read":"0","Content-Type":"application/octet-stream"}:{"X-Filename":encodeURIComponent(f.name),"Content-Type":"application/octet-stream"}).then(function(){ok++}).catch(function(e){bad.push(f.name+": "+e.message)}).then(next)}
+  next()};
 var editId=null;
 function showChat(h){var lg=$("chatLog");lg.textContent="";(h||[]).forEach(function(m){lg.appendChild(el("p",m.text,m.role))});lg.scrollTop=lg.scrollHeight}
 function openEdit(b){editId=b.id;$("editTitle").textContent="Edit the notes and questions: "+b.topic;$("cEdit").classList.remove("hidden");$("chatErr").textContent="";
